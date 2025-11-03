@@ -1,0 +1,278 @@
+# MLOps Diabetes Classification Project Configuration
+
+project:
+  name: diabetes-classification
+  version: "1.0.0"
+  description: "End-to-end MLOps pipeline for diabetes classification"
+  
+aws:
+  region: us-east-1
+  account_id: "YOUR_AWS_ACCOUNT_ID"  # Replace with your AWS account ID
+  
+# S3 Configuration
+s3:
+  bucket_name: mlops-diabetes-classification  # Replace with your bucket name
+  prefix: diabetes-project
+  data:
+    raw: data/raw
+    processed: data/processed
+    train: data/train
+    validation: data/validation
+    test: data/test
+  models: models
+  outputs: outputs
+  monitoring: monitoring
+  
+# SageMaker Configuration
+sagemaker:
+  # Execution Role - Replace with your SageMaker execution role ARN
+  role: "arn:aws:iam::YOUR_ACCOUNT_ID:role/SageMakerExecutionRole"
+  
+  # Processing Job Configuration
+  processing:
+    instance_type: ml.m5.xlarge
+    instance_count: 1
+    volume_size_gb: 30
+    max_runtime_seconds: 3600
+    
+  # Training Job Configuration  
+  training:
+    instance_type: ml.m5.xlarge
+    instance_count: 1
+    volume_size_gb: 30
+    max_runtime_seconds: 3600
+    use_spot_instances: true
+    max_wait_seconds: 7200
+    checkpoint_s3_uri: s3://mlops-diabetes-classification/checkpoints
+    
+  # Hyperparameter Tuning Configuration
+  tuning:
+    enabled: false
+    max_jobs: 10
+    max_parallel_jobs: 2
+    strategy: Bayesian
+    
+  # Model Registry
+  model_registry:
+    model_package_group_name: diabetes-classification-models
+    approval_status: PendingManualApproval  # Options: Approved, PendingManualApproval, Rejected
+    
+  # Endpoint Configuration
+  endpoint:
+    instance_type: ml.t2.medium
+    initial_instance_count: 1
+    variant_name: AllTraffic
+    
+  # Auto-scaling Configuration
+  autoscaling:
+    enabled: true
+    min_capacity: 1
+    max_capacity: 5
+    target_invocations_per_instance: 1000
+    scale_in_cooldown: 300
+    scale_out_cooldown: 60
+    
+  # Model Monitor Configuration
+  monitoring:
+    enabled: true
+    instance_type: ml.m5.xlarge
+    instance_count: 1
+    volume_size_gb: 20
+    max_runtime_seconds: 3600
+    schedule_cron: "cron(0 * * * ? *)"  # Hourly
+    baseline_dataset_samples: 1000
+    
+# Data Configuration
+data:
+  dataset_name: pima-indians-diabetes
+  source_url: "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv"
+  target_column: Outcome
+  feature_columns:
+    - Pregnancies
+    - Glucose
+    - BloodPressure
+    - SkinThickness
+    - Insulin
+    - BMI
+    - DiabetesPedigreeFunction
+    - Age
+  
+  # Data Split Ratios
+  split:
+    train: 0.7
+    validation: 0.15
+    test: 0.15
+    random_state: 42
+    stratify: true
+    
+  # Data Quality Checks
+  validation:
+    check_missing_values: true
+    check_data_types: true
+    check_value_ranges: true
+    max_missing_percentage: 10
+    
+# Model Configuration
+model:
+  algorithm: xgboost
+  framework_version: "1.5-1"
+  
+  # Hyperparameters
+  hyperparameters:
+    max_depth: 5
+    eta: 0.2
+    gamma: 4
+    min_child_weight: 6
+    subsample: 0.7
+    objective: "binary:logistic"
+    num_round: 100
+    eval_metric: "auc"
+    early_stopping_rounds: 10
+    
+  # Hyperparameter Ranges for Tuning
+  hyperparameter_ranges:
+    max_depth:
+      type: Integer
+      min_value: 3
+      max_value: 10
+    eta:
+      type: Continuous
+      min_value: 0.01
+      max_value: 0.5
+    gamma:
+      type: Continuous
+      min_value: 0
+      max_value: 5
+    min_child_weight:
+      type: Integer
+      min_value: 1
+      max_value: 10
+    subsample:
+      type: Continuous
+      min_value: 0.5
+      max_value: 1.0
+      
+# Evaluation Metrics
+evaluation:
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1_score
+    - roc_auc
+    - confusion_matrix
+  
+  # Model Approval Thresholds
+  approval_thresholds:
+    min_accuracy: 0.75
+    min_f1_score: 0.70
+    min_roc_auc: 0.80
+    
+# Monitoring Configuration
+monitoring:
+  # Data Quality Monitoring
+  data_quality:
+    enabled: true
+    threshold_deviation: 0.2
+    
+  # Model Quality Monitoring  
+  model_quality:
+    enabled: true
+    threshold_accuracy_drop: 0.05
+    threshold_f1_drop: 0.05
+    
+  # Bias Drift Monitoring
+  bias_drift:
+    enabled: false
+    sensitive_features: []
+    
+  # Feature Attribution Drift
+  feature_drift:
+    enabled: true
+    threshold: 0.15
+    
+# CloudWatch Alerts
+cloudwatch:
+  alarms:
+    - name: ModelAccuracyDrop
+      metric: Accuracy
+      threshold: 0.70
+      comparison: LessThanThreshold
+      
+    - name: HighEndpointLatency
+      metric: ModelLatency
+      threshold: 1000  # milliseconds
+      comparison: GreaterThanThreshold
+      
+    - name: HighEndpointErrors
+      metric: ModelInvocationErrors
+      threshold: 10
+      comparison: GreaterThanThreshold
+      
+  # SNS Topic for Notifications
+  sns_topic_arn: "arn:aws:sns:us-east-1:YOUR_ACCOUNT_ID:mlops-alerts"
+  
+# Pipeline Configuration
+pipeline:
+  name: diabetes-classification-pipeline
+  
+  # Pipeline Steps
+  steps:
+    - preprocessing
+    - feature_engineering
+    - training
+    - evaluation
+    - model_registration
+    - conditional_deployment
+    
+  # Cache Configuration
+  cache:
+    enabled: true
+    expire_after: 30d
+    
+  # Retry Configuration
+  retry:
+    attempts: 3
+    delay: 5
+    
+# Retraining Configuration
+retraining:
+  enabled: true
+  trigger:
+    - scheduled  # Run on schedule
+    - drift_detected  # Run when drift detected
+    - manual  # Manual trigger
+    
+  schedule:
+    cron: "cron(0 0 * * ? *)"  # Daily at midnight
+    
+  drift_threshold: 0.2
+  min_samples_for_retrain: 1000
+  
+# Feature Store Configuration (Optional)
+feature_store:
+  enabled: false
+  online_store: true
+  offline_store: true
+  feature_group_name: diabetes-features
+  record_identifier: patient_id
+  event_time_feature: timestamp
+  
+# Experiment Tracking
+experiments:
+  enabled: true
+  experiment_name: diabetes-classification-experiment
+  trial_prefix: trial
+  
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  cloudwatch_log_group: /aws/sagemaker/diabetes-classification
+  
+# Tags
+tags:
+  Project: DiabetesClassification
+  Environment: Development
+  ManagedBy: MLOps
+  CostCenter: DataScience

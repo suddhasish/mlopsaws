@@ -1,0 +1,169 @@
+# Environment-Specific Configuration for MLOps Pipeline
+
+# Development Environment
+dev:
+  aws:
+    region: us-east-1
+    account_id: "YOUR_DEV_ACCOUNT_ID"
+  
+  s3:
+    bucket_name: mlops-diabetes-dev
+    prefix: diabetes-project-dev
+  
+  sagemaker:
+    role: "arn:aws:iam::YOUR_DEV_ACCOUNT_ID:role/SageMakerExecutionRole-Dev"
+    
+    processing:
+      instance_type: ml.t3.medium  # Smaller/cheaper for dev
+      instance_count: 1
+    
+    training:
+      instance_type: ml.m5.large  # Smaller for dev
+      instance_count: 1
+      use_spot_instances: true  # Save costs
+    
+    endpoint:
+      instance_type: ml.t2.medium  # Cheapest for dev testing
+      initial_instance_count: 1
+    
+    autoscaling:
+      enabled: false  # No autoscaling in dev
+    
+    monitoring:
+      enabled: false  # Optional monitoring in dev
+      schedule_cron: "cron(0 */12 * * ? *)"  # Every 12 hours
+    
+    model_registry:
+      model_package_group_name: diabetes-classification-models-dev
+      approval_status: Approved  # Auto-approve in dev
+  
+  evaluation:
+    approval_thresholds:
+      min_accuracy: 0.70  # Lower threshold for dev experimentation
+      min_f1_score: 0.65
+      min_roc_auc: 0.75
+  
+  tags:
+    Environment: Development
+    CostCenter: ML-Dev
+    AutoShutdown: "true"
+
+---
+
+# Staging Environment
+staging:
+  aws:
+    region: us-east-1
+    account_id: "YOUR_STAGING_ACCOUNT_ID"
+  
+  s3:
+    bucket_name: mlops-diabetes-staging
+    prefix: diabetes-project-staging
+  
+  sagemaker:
+    role: "arn:aws:iam::YOUR_STAGING_ACCOUNT_ID:role/SageMakerExecutionRole-Staging"
+    
+    processing:
+      instance_type: ml.m5.xlarge
+      instance_count: 1
+    
+    training:
+      instance_type: ml.m5.xlarge
+      instance_count: 1
+      use_spot_instances: true
+    
+    endpoint:
+      instance_type: ml.m5.large  # Similar to production
+      initial_instance_count: 1
+    
+    autoscaling:
+      enabled: true
+      min_capacity: 1
+      max_capacity: 3  # Lower than production
+      target_invocations_per_instance: 1000
+    
+    monitoring:
+      enabled: true
+      schedule_cron: "cron(0 */6 * * ? *)"  # Every 6 hours
+    
+    model_registry:
+      model_package_group_name: diabetes-classification-models-staging
+      approval_status: PendingManualApproval  # Manual approval before prod
+  
+  evaluation:
+    approval_thresholds:
+      min_accuracy: 0.75  # Production-like thresholds
+      min_f1_score: 0.70
+      min_roc_auc: 0.80
+  
+  tags:
+    Environment: Staging
+    CostCenter: ML-Staging
+    PromoteToProd: "true"
+
+---
+
+# Production Environment
+production:
+  aws:
+    region: us-east-1
+    account_id: "YOUR_PROD_ACCOUNT_ID"
+  
+  s3:
+    bucket_name: mlops-diabetes-production
+    prefix: diabetes-project-prod
+  
+  sagemaker:
+    role: "arn:aws:iam::YOUR_PROD_ACCOUNT_ID:role/SageMakerExecutionRole-Prod"
+    
+    processing:
+      instance_type: ml.m5.2xlarge  # Larger for production
+      instance_count: 1
+    
+    training:
+      instance_type: ml.m5.2xlarge
+      instance_count: 2  # Distributed training option
+      use_spot_instances: false  # Reliability over cost
+    
+    endpoint:
+      instance_type: ml.m5.xlarge  # Production-grade
+      initial_instance_count: 2  # High availability
+    
+    autoscaling:
+      enabled: true
+      min_capacity: 2  # Always 2 for HA
+      max_capacity: 10  # Higher capacity
+      target_invocations_per_instance: 1000
+    
+    monitoring:
+      enabled: true
+      schedule_cron: "cron(0 * * * ? *)"  # Hourly
+      baseline_dataset_samples: 5000  # Larger baseline
+    
+    model_registry:
+      model_package_group_name: diabetes-classification-models-prod
+      approval_status: PendingManualApproval  # MUST be manually approved
+  
+  evaluation:
+    approval_thresholds:
+      min_accuracy: 0.78  # Highest thresholds for production
+      min_f1_score: 0.73
+      min_roc_auc: 0.82
+  
+  # Production-specific features
+  deployment:
+    strategy: blue_green  # Blue/green deployment
+    rollback_on_failure: true
+    canary_percentage: 10  # Start with 10% traffic
+    canary_interval: 300  # 5 minutes between increases
+  
+  alerts:
+    enabled: true
+    sns_topic_arn: "arn:aws:sns:us-east-1:YOUR_PROD_ACCOUNT_ID:mlops-prod-alerts"
+    pagerduty_integration: true
+  
+  tags:
+    Environment: Production
+    CostCenter: ML-Production
+    Criticality: High
+    Compliance: Required
