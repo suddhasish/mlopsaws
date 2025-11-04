@@ -77,7 +77,14 @@ module "networking" {
   vpc_cidr                 = var.vpc_cidr
   availability_zones_count = var.availability_zones_count
   enable_vpc_endpoints     = var.enable_vpc_endpoints
-  additional_tags          = var.additional_tags
+  tags                     = merge(
+    {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    },
+    var.additional_tags
+  )
 }
 
 # =============================================================================
