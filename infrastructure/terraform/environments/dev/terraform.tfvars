@@ -7,8 +7,8 @@
 project_name   = "mlops-diabetes"
 environment    = "dev"
 region         = "us-east-1"
-owner_email    = "your-email@company.com"  # CHANGE THIS
-repository_url = "https://github.com/your-org/mlops-diabetes"  # CHANGE THIS
+owner_email    = "suddhasiishkar@gmail.com"  # ✅ Updated
+repository_url = "https://github.com/suddhasish/mlopsaws"  # ✅ Updated
 
 # Networking - Use default VPC for dev (simplest setup)
 enable_vpc          = false  # Set to true for production-like testing
@@ -43,7 +43,7 @@ enable_cloudtrail = false  # Not needed in dev
 enable_config = false
 
 # Alerting - Minimal for dev
-alert_email_endpoints = []  # No alerts in dev
+alert_email_endpoints = ["suddhasiishkar@gmail.com"]  # ✅ Updated with your email
 enable_pagerduty_alerts = false
 
 endpoint_latency_threshold_ms = 1000  # Relaxed threshold
