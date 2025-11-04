@@ -39,8 +39,12 @@ The root folder contains additional documentation for specific topics:
 | File | Purpose | When to Read |
 |------|---------|--------------|
 | [COMPLETE_SETUP_GUIDE.md](./COMPLETE_SETUP_GUIDE.md) | ⭐ **THE MAIN GUIDE** | Start here (required) |
+| [DATA_INGESTION_GUIDE.md](./DATA_INGESTION_GUIDE.md) | 📊 Complete data pipeline guide | Understanding data flow & production options |
+| [DATA_FLOW_ARCHITECTURE.md](./DATA_FLOW_ARCHITECTURE.md) | 📊 Visual data flow diagrams | Understanding pipeline phases |
+| [DATA_INGESTION_SUMMARY.md](./DATA_INGESTION_SUMMARY.md) | 📊 Quick data ingestion reference | Quick decision on data sources |
 | [TRUST_POLICY_BEST_PRACTICES.md](./TRUST_POLICY_BEST_PRACTICES.md) | 🔐 Production-ready OIDC setup | Before production deployment |
-| [TRUST_POLICY_QUICK_REFERENCE.md](./TRUST_POLICY_QUICK_REFERENCE.md) | 🔐 Quick decision guide | When choosing trust policy approach |
+| [TRUST_POLICY_QUICK_REFERENCE.md](./TRUST_POLICY_QUICK_REFERENCE.md) | 🔐 Quick trust policy decisions | Choosing trust policy approach |
+| [TRUST_POLICY_VISUAL_GUIDE.md](./TRUST_POLICY_VISUAL_GUIDE.md) | 🔐 Visual security diagrams | Understanding OIDC trust |
 | [CONSOLIDATION_SUMMARY.md](./CONSOLIDATION_SUMMARY.md) | 📋 Documentation history | Optional - explains doc structure |
 
 **All root folder docs are OPTIONAL and provide additional context.**
@@ -58,6 +62,21 @@ The root folder contains additional documentation for specific topics:
 - ✅ **Organization setup:** No changes needed (just remove from team)
 
 **Quick Guide:** [TRUST_POLICY_QUICK_REFERENCE.md](./TRUST_POLICY_QUICK_REFERENCE.md)
+
+---
+
+## 📊 Data Flow Note: Data Ingestion
+
+**Important:** Understanding how data moves through the pipeline:
+
+📖 **Read:** [DATA_INGESTION_GUIDE.md](./DATA_INGESTION_GUIDE.md)
+
+**Why?** Current setup downloads from GitHub (good for learning). Production needs different approaches:
+- ❌ **Current:** GitHub public download (demo only)
+- ✅ **Production:** S3 events, scheduled ingestion, or streaming
+
+**Quick Guide:** [DATA_INGESTION_SUMMARY.md](./DATA_INGESTION_SUMMARY.md)  
+**Visual Flow:** [DATA_FLOW_ARCHITECTURE.md](./DATA_FLOW_ARCHITECTURE.md)
 
 ---
 

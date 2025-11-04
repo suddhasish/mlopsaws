@@ -22,6 +22,10 @@
 9. [PowerShell Scripts Reference](#9-powershell-scripts-reference)
 10. [Troubleshooting](#10-troubleshooting)
 
+**Additional Guides:**
+- 📊 [Data Ingestion Guide](./DATA_INGESTION_GUIDE.md) - How data flows through the pipeline
+- 🔐 [Trust Policy Best Practices](./TRUST_POLICY_BEST_PRACTICES.md) - Production security setup
+
 ---
 
 ## 🎯 STEP-BY-STEP EXECUTION SUMMARY
@@ -819,6 +823,11 @@ Settings → Secrets → Actions → New repository secret
 ---
 
 ## 6️⃣ Automated - MLOps Pipeline
+
+> **📊 Data Flow Note:** Wondering how data gets into the pipeline? See **[Data Ingestion Guide](./DATA_INGESTION_GUIDE.md)** for complete details on:
+> - Current implementation (GitHub download)
+> - Production options (S3 events, scheduled ingestion, streaming)
+> - Migration paths from learning to production
 
 ### Step 6.1: Trigger MLOps Pipeline
 
