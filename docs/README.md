@@ -4,21 +4,52 @@
 
 **Everything you need is in ONE guide:**
 
-### [📖 COMPLETE_SETUP_GUIDE.md](./COMPLETE_SETUP_GUIDE.md)
+### [📖 COMPLETE_SETUP_GUIDE.md](./COMPLETE_SETUP_GUIDE.md) ⭐ **UPDATED v4.0**
 
 **This is the ONLY guide you need to read.**
 
-It contains:
-- ✅ Complete end-to-end setup (nothing missing)
-- ✅ Clear marking of Manual vs Automated steps
-- ✅ GitHub Actions automation (recommended method)
-- ✅ PowerShell scripts reference (local alternative)
-- ✅ Step-by-step with exact commands
-- ✅ Troubleshooting for common issues
-- ✅ Production deployment guide
+**What's new in v4.0 (Streamlined & Production-Ready):**
+- ✅ **5-Minute Quick Start** - Get overview before diving in
+- ✅ **Visual Process Flow** - See exactly what's manual vs automated
+- ✅ **45 Minutes Setup** - Reduced from 2-3 hours to 1-2 hours
+- ✅ **Windows PowerShell** - All commands tested and working
+- ✅ **Clear Progression** - Tools → AWS → GitHub → Deploy
+- ✅ **Enhanced Troubleshooting** - 5 new common issues with solutions
+- ✅ **Actual Examples** - Real account IDs, ARNs, and commands from working setup
 
-**Time:** 2-3 hours (one-time setup)  
+**What it contains:**
+- ✅ Complete end-to-end setup (nothing missing)
+- ✅ Clear marking of Manual (🔴) vs Automated (🟢) steps
+- ✅ GitHub Actions automation (recommended method)
+- ✅ Step-by-step with exact commands that work
+- ✅ Troubleshooting for common Windows issues
+- ✅ Production deployment guidance
+
+**Time:** 1-2 hours (one-time setup)  
 **Result:** Fully automated MLOps infrastructure on AWS
+
+**Changelog:** See [STREAMLINING_SUMMARY.md](./STREAMLINING_SUMMARY.md) for all improvements
+
+---
+
+## ✅ ACTUAL SETUP STATUS
+
+### [📋 ACTUAL_SETUP_COMPLETED.md](./ACTUAL_SETUP_COMPLETED.md)
+
+**Quick reference for what has been completed:**
+
+**✅ Completed:**
+- OIDC Provider created (arn:aws:iam::891807086260:oidc-provider/token.actions.githubusercontent.com)
+- IAM Role created (GitHubActions-MLOps-Dev)
+- Policies attached (SageMaker, S3, IAM)
+- Trust policy file created and tested
+
+**⏸️ Next Steps:**
+1. Add GitHub Secrets (AWS_ROLE_ARN, AWS_REGION)
+2. Update terraform.tfvars with account ID
+3. Push to GitHub to trigger workflows
+
+See [ACTUAL_SETUP_COMPLETED.md](./ACTUAL_SETUP_COMPLETED.md) for exact values and verification commands.
 
 ---
 
@@ -38,14 +69,16 @@ The root folder contains additional documentation for specific topics:
 
 | File | Purpose | When to Read |
 |------|---------|--------------|
-| [COMPLETE_SETUP_GUIDE.md](./COMPLETE_SETUP_GUIDE.md) | ⭐ **THE MAIN GUIDE** | Start here (required) |
+| [COMPLETE_SETUP_GUIDE.md](./COMPLETE_SETUP_GUIDE.md) | ⭐ **THE MAIN GUIDE (v4.0 - Streamlined)** | Start here (required) |
+| [STREAMLINING_SUMMARY.md](./STREAMLINING_SUMMARY.md) | 📋 What changed in v4.0 | See improvements made |
+| [ACTUAL_SETUP_COMPLETED.md](./ACTUAL_SETUP_COMPLETED.md) | ✅ **What's been completed** | Quick reference for current status |
 | [DATA_INGESTION_GUIDE.md](./DATA_INGESTION_GUIDE.md) | 📊 Complete data pipeline guide | Understanding data flow & production options |
 | [DATA_FLOW_ARCHITECTURE.md](./DATA_FLOW_ARCHITECTURE.md) | 📊 Visual data flow diagrams | Understanding pipeline phases |
 | [DATA_INGESTION_SUMMARY.md](./DATA_INGESTION_SUMMARY.md) | 📊 Quick data ingestion reference | Quick decision on data sources |
 | [TRUST_POLICY_BEST_PRACTICES.md](./TRUST_POLICY_BEST_PRACTICES.md) | 🔐 Production-ready OIDC setup | Before production deployment |
 | [TRUST_POLICY_QUICK_REFERENCE.md](./TRUST_POLICY_QUICK_REFERENCE.md) | 🔐 Quick trust policy decisions | Choosing trust policy approach |
 | [TRUST_POLICY_VISUAL_GUIDE.md](./TRUST_POLICY_VISUAL_GUIDE.md) | 🔐 Visual security diagrams | Understanding OIDC trust |
-| [CONSOLIDATION_SUMMARY.md](./CONSOLIDATION_SUMMARY.md) | 📋 Documentation history | Optional - explains doc structure |
+| [CONSOLIDATION_SUMMARY.md](./CONSOLIDATION_SUMMARY.md) | 📋 Documentation history (v3.0) | Optional - explains v3.0 structure |
 
 **All root folder docs are OPTIONAL and provide additional context.**
 

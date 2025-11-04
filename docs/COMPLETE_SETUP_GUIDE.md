@@ -2,153 +2,205 @@
 
 **THE ONLY GUIDE YOU NEED - End-to-End Automated Deployment**
 
-**Version:** 3.0 - Consolidated Single Guide  
+**Version:** 4.0 - Streamlined & Production-Ready  
 **Last Updated:** November 4, 2025  
-**Total Time:** 2-3 hours (one-time setup) + monitoring  
+**Total Time:** 1-2 hours (one-time setup)  
 **Method:** 100% GitHub Actions Automation
+
+---
+
+## 🎯 QUICK START (5-Minute Overview)
+
+**What you'll build:** Fully automated ML pipeline that trains, deploys, and monitors models on AWS SageMaker
+
+**Setup flow:**
+```
+1. AWS Setup (30 min)    → OIDC Provider + IAM Role
+2. GitHub Setup (15 min) → Add secrets + fork repo  
+3. Config Update (5 min) → Edit terraform.tfvars
+4. Push Code (1 min)     → Triggers automation
+5. Watch It Run (45 min) → GitHub Actions does everything else
+```
+
+**After setup, every code push automatically:**
+- ✅ Validates & deploys infrastructure
+- ✅ Trains ML model on new data
+- ✅ Deploys to SageMaker endpoint
+- ✅ Monitors for drift
 
 ---
 
 ## 📋 TABLE OF CONTENTS
 
-1. [Overview & Architecture](#1-overview--architecture)
-2. [Prerequisites](#2-prerequisites)
-3. [Manual Steps - AWS OIDC Setup](#3-manual-steps---aws-oidc-setup)
-4. [Manual Steps - GitHub Configuration](#4-manual-steps---github-configuration)
-5. [Automated - Infrastructure Deployment](#5-automated---infrastructure-deployment)
-6. [Automated - MLOps Pipeline](#6-automated---mlops-pipeline)
-7. [Manual Steps - Production Deployment](#7-manual-steps---production-deployment)
-8. [Monitoring & Validation](#8-monitoring--validation)
-9. [PowerShell Scripts Reference](#9-powershell-scripts-reference)
-10. [Troubleshooting](#10-troubleshooting)
+**SETUP PHASE (Manual - Do Once):**
+1. [Prerequisites & Tools](#1-prerequisites--tools)
+2. [AWS OIDC Configuration](#2-aws-oidc-configuration)
+3. [GitHub Repository Setup](#3-github-repository-setup)
+4. [Configuration Files](#4-configuration-files)
 
-**Additional Guides:**
-- 📊 [Data Ingestion Guide](./DATA_INGESTION_GUIDE.md) - How data flows through the pipeline
-- 🔐 [Trust Policy Best Practices](./TRUST_POLICY_BEST_PRACTICES.md) - Production security setup
+**AUTOMATION PHASE (Automatic - Runs on Every Push):**
+5. [Infrastructure Deployment](#5-infrastructure-deployment-automated)
+6. [MLOps Pipeline Execution](#6-mlops-pipeline-execution-automated)
+7. [Monitoring & Validation](#7-monitoring--validation)
 
----
+**REFERENCE:**
+8. [Troubleshooting](#8-troubleshooting)
+9. [PowerShell Scripts (Local Development)](#9-powershell-scripts-local-development)
+10. [Advanced Topics](#10-advanced-topics)
 
-## 🎯 STEP-BY-STEP EXECUTION SUMMARY
-
-### Quick Reference: What's Manual vs Automated
-
-| Step | Action | Type | Time | Where |
-|------|--------|------|------|-------|
-| 1 | AWS Account Setup | 🔴 **MANUAL** | 30 min | AWS Console |
-| 2 | Create OIDC Provider | 🔴 **MANUAL** | 10 min | AWS Console / CLI |
-| 3 | Create IAM Roles | 🔴 **MANUAL** | 15 min | AWS Console / CLI |
-| 4 | Configure GitHub Secrets | 🔴 **MANUAL** | 10 min | GitHub Settings |
-| 5 | Setup Environment Protection | 🔴 **MANUAL** | 5 min | GitHub Settings |
-| 6 | Update terraform.tfvars | 🔴 **MANUAL** | 5 min | Code Editor |
-| 7 | Push to develop branch | 🔴 **MANUAL** | 1 min | Git |
-| 8 | **Infrastructure Deployment** | 🟢 **AUTOMATED** | 10-15 min | GitHub Actions |
-| 9 | **Config Auto-Update** | 🟢 **AUTOMATED** | 1 min | GitHub Actions |
-| 10 | **MLOps Pipeline Execution** | 🟢 **AUTOMATED** | 25-30 min | GitHub Actions |
-| 11 | **Model Training** | 🟢 **AUTOMATED** | 15-20 min | SageMaker |
-| 12 | **Model Deployment** | 🟢 **AUTOMATED** | 8-10 min | SageMaker |
-| 13 | **Monitoring Setup** | 🟢 **AUTOMATED** | 2-3 min | SageMaker |
-| 14 | Production Approval | 🔴 **MANUAL** | 5 min | GitHub Actions |
-| 15 | Cost Monitoring | 🟡 **SEMI-AUTO** | Daily | AWS Console |
-
-**Legend:**
-- 🔴 **MANUAL** = You must do this step yourself (AWS Console, GitHub UI, or CLI)
-- 🟢 **AUTOMATED** = GitHub Actions does this automatically after setup
-- 🟡 **SEMI-AUTO** = Automated alerts, manual review
+**📚 Additional Resources:**
+- 📊 [Data Ingestion Guide](./DATA_INGESTION_GUIDE.md) - Production data pipeline options
+- 🔐 [Trust Policy Best Practices](./TRUST_POLICY_BEST_PRACTICES.md) - Organization-based security
+- ✅ [Actual Setup Completed](./ACTUAL_SETUP_COMPLETED.md) - What's been done (your project status)
 
 ---
 
-## 1️⃣ Overview & Architecture
+## 📊 PROCESS FLOW OVERVIEW
 
-### What Gets Deployed Automatically
+### What Happens When You Push Code
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                    YOUR GITHUB REPOSITORY                       │
-│                                                                 │
-│  When you push to 'develop' or 'main' branch:                  │
-└──────────────────────┬─────────────────────────────────────────┘
-                       │
-                       ▼
-┌────────────────────────────────────────────────────────────────┐
-│              GITHUB ACTIONS WORKFLOWS (Automated)               │
-│                                                                 │
-│  Workflow 1: terraform.yml                                      │
-│  ├─ Validates Terraform syntax                                 │
-│  ├─ Runs security scan (tfsec)                                 │
-│  ├─ Generates Terraform plan                                   │
-│  ├─ Applies infrastructure (auto for dev, manual for prod)     │
-│  └─ Outputs: S3 bucket, IAM roles, SageMaker registry          │
-│                                                                 │
-│  Workflow 2: mlops_pipeline.yaml                               │
-│  ├─ Runs code quality checks (black, flake8)                   │
-│  ├─ Executes unit tests (pytest)                               │
-│  ├─ Uploads data to S3                                         │
-│  ├─ Creates SageMaker pipeline                                 │
-│  ├─ Trains XGBoost model                                       │
-│  ├─ Evaluates model performance                                │
-│  ├─ Deploys to SageMaker endpoint                              │
-│  └─ Sets up Model Monitor                                      │
-└──────────────────────┬─────────────────────────────────────────┘
-                       │
-                       ▼
-┌────────────────────────────────────────────────────────────────┐
-│                        AWS CLOUD                                │
-│                                                                 │
-│  ✅ S3 Bucket (data, models, artifacts)                        │
-│  ✅ IAM Roles (SageMaker execution, data scientist)            │
-│  ✅ SageMaker Model Registry                                   │
-│  ✅ CloudWatch Log Groups                                      │
-│  ✅ SNS Topics (alerts)                                        │
-│  ✅ Lambda Functions (auto-shutdown)                           │
-│  ✅ Budgets (cost control)                                     │
-│  ✅ SageMaker Training Jobs                                    │
-│  ✅ SageMaker Endpoints (real-time inference)                  │
-│  ✅ Model Monitor (drift detection)                            │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ YOU: git push origin main                                       │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ GITHUB ACTIONS: Automatically triggered                         │
+│                                                                  │
+│ Job 1: Infrastructure (terraform.yml)                           │
+│   ├─ Authenticate to AWS via OIDC (no keys!)                   │
+│   ├─ Run Terraform plan                                         │
+│   ├─ Apply infrastructure changes                              │
+│   └─ Output: S3 bucket, IAM roles, SageMaker setup             │
+│                                                                  │
+│ Job 2: ML Pipeline (mlops_pipeline.yaml)                        │
+│   ├─ Download diabetes dataset                                 │
+│   ├─ Upload data to S3                                          │
+│   ├─ Create SageMaker pipeline                                 │
+│   ├─ Train XGBoost model                                        │
+│   ├─ Evaluate model performance                                │
+│   ├─ Deploy to SageMaker endpoint                              │
+│   └─ Setup Model Monitor for drift detection                   │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ AWS CLOUD: Infrastructure + ML Models Running                   │
+│                                                                  │
+│ ✅ S3 Bucket (mlops-diabetes-dev-ACCOUNT)                      │
+│ ✅ SageMaker Training Job (diabetes-model-TIMESTAMP)           │
+│ ✅ SageMaker Endpoint (diabetes-endpoint-TIMESTAMP)            │
+│ ✅ Model Monitor (drift-detector)                              │
+│ ✅ CloudWatch Logs (all activity)                              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### PowerShell Scripts (Used Locally - Optional)
+### Manual Steps (You Do Once) vs Automated Steps (GitHub Does Forever)
 
-These scripts are **alternatives** to GitHub Actions for **local development only**:
+| Phase | Step | Type | Time | Tool |
+|-------|------|------|------|------|
+| **SETUP** | Install AWS CLI | 🔴 MANUAL | 5 min | Windows installer |
+| **SETUP** | Configure AWS credentials | 🔴 MANUAL | 5 min | `aws configure` |
+| **SETUP** | Create OIDC Provider | 🔴 MANUAL | 5 min | AWS Console/CLI |
+| **SETUP** | Create IAM Role | 🔴 MANUAL | 10 min | AWS CLI |
+| **SETUP** | Add GitHub Secrets | 🔴 MANUAL | 5 min | GitHub Settings |
+| **SETUP** | Update terraform.tfvars | 🔴 MANUAL | 5 min | Code editor |
+| **SETUP** | Push code to GitHub | 🔴 MANUAL | 1 min | `git push` |
+| **AUTOMATION** | Deploy infrastructure | 🟢 AUTO | 10 min | GitHub Actions |
+| **AUTOMATION** | Train ML model | 🟢 AUTO | 20 min | GitHub Actions |
+| **AUTOMATION** | Deploy endpoint | 🟢 AUTO | 10 min | GitHub Actions |
+| **AUTOMATION** | Setup monitoring | 🟢 AUTO | 5 min | GitHub Actions |
+| **ONGOING** | Retrain on new data | 🟢 AUTO | 20 min | On every push |
+| **ONGOING** | Cost alerts | 🟡 SEMI | Daily | AWS Budgets |
 
-1. **deploy-infrastructure.ps1** 
-   - Purpose: Local Terraform deployment
-   - When to use: Learning Terraform, offline dev, quick testing
-   - GitHub Actions equivalent: `terraform.yml` workflow
-
-2. **update-config.ps1**
-   - Purpose: Auto-updates config.yaml from Terraform outputs
-   - When to use: After local Terraform apply
-   - GitHub Actions equivalent: Built into `terraform.yml` workflow
-
-3. **validate-setup.ps1**
-   - Purpose: Validates infrastructure is ready
-   - When to use: Before running ML pipeline locally
-   - GitHub Actions equivalent: Built into `mlops_pipeline.yaml` workflow
-
-**For GitHub Actions deployment (recommended), you DON'T need to run these scripts!**
+**Total manual time:** ~45 minutes (one-time)  
+**Total automated time:** ~45 minutes (every code push)
 
 ---
 
-## 2️⃣ Prerequisites
+## 1️⃣ Prerequisites & Tools
 
-### 🔴 MANUAL SETUP - Required Before Automation
+### What You Need Before Starting
 
-#### AWS Account (30 minutes)
+| Requirement | Purpose | Get It From | Time |
+|-------------|---------|-------------|------|
+| **AWS Account** | Cloud infrastructure | https://aws.amazon.com/ | 30 min |
+| **GitHub Account** | Code + automation | https://github.com/ | 5 min |
+| **AWS CLI v2** | AWS configuration | https://awscli.amazonaws.com/AWSCLIV2.msi | 5 min |
+| **Git** | Version control | https://git-scm.com/downloads | 5 min |
+| **Code Editor** | Edit config files | VS Code, Notepad++ | 5 min |
 
-**Status:** 🔴 **MANUAL** - Must create via AWS website
+### Step 1.1: Install AWS CLI (Windows)
 
-1. **Create AWS Account** (if you don't have one)
-   ```
-   URL: https://aws.amazon.com/
-   Click: "Create an AWS Account"
-   
-   Provide:
-   - Email address (use company email for production)
-   - Account name: mlops-production or yourname-ml
-   - Credit card (required, won't be charged unless you exceed free tier)
-   - Phone verification
-   ```
+🔴 **MANUAL** - One-time installation
+
+```powershell
+# Download and install
+# URL: https://awscli.amazonaws.com/AWSCLIV2.msi
+# Run the installer (click Next → Install)
+
+# IMPORTANT: Restart PowerShell after installation
+# Close and reopen PowerShell window
+
+# Verify installation
+aws --version
+# Expected: aws-cli/2.x.x Python/3.x.x Windows/...
+```
+
+**If "aws: command not found"** → See [Troubleshooting Issue 2](#issue-2-aws-cli-not-recognized-after-installation)
+
+### Step 1.2: Create AWS IAM User & Configure Credentials
+
+🔴 **MANUAL** - For initial setup only
+
+```powershell
+# 1. Create IAM user in AWS Console
+# Go to: https://console.aws.amazon.com/iam/
+# Users → Add users
+# Username: mlops-admin
+# ✅ Access key - Programmatic access
+# Attach policy: AdministratorAccess (for setup only)
+# Download access keys (CSV file)
+
+# 2. Configure AWS CLI with your credentials
+aws configure --profile mlops-dev
+
+# Enter when prompted:
+# AWS Access Key ID: AKIA... (from downloaded CSV)
+# AWS Secret Access Key: ... (from downloaded CSV)
+# Default region name: us-east-1
+# Default output format: json
+
+# 3. Test credentials
+aws sts get-caller-identity --profile mlops-dev
+# Should show your UserId, Account, and Arn
+
+# 4. Set default profile for this session
+$env:AWS_PROFILE = "mlops-dev"
+```
+
+**If "InvalidClientTokenId"** → See [Troubleshooting Issue 4](#issue-4-invalidclienttokenid-error)
+
+### Step 1.3: Get Your AWS Account ID
+
+🔴 **MANUAL** - You'll need this in next steps
+
+```powershell
+# Method 1: AWS CLI
+$accountId = aws sts get-caller-identity --query Account --output text
+Write-Host "Your AWS Account ID: $accountId"
+
+# Method 2: AWS Console
+# Top-right corner → Click your name → Account ID shown
+```
+
+**Save this number - you'll use it multiple times!**  
+Example: `891807086260`
+
+✅ **Checkpoint:** You have AWS CLI installed, configured, and can see your account ID
+
+---
 
 2. **Enable MFA on Root Account** ⚠️ **CRITICAL SECURITY STEP**
    ```
@@ -277,75 +329,92 @@ These scripts are **alternatives** to GitHub Actions for **local development onl
 
 ---
 
-## 3️⃣ Manual Steps - AWS OIDC Setup
+## 2️⃣ AWS OIDC Configuration
 
-### Why OIDC Instead of Access Keys?
+### Why OIDC? (Secure Authentication Without Keys)
 
-**🔴 OLD WAY (Insecure):**
-```
-AWS Access Keys → Stored in GitHub Secrets → Can leak in logs
+**Old Way (Insecure):**
+- Store AWS access keys in GitHub Secrets
 - Keys never expire
+- Can leak in logs
 - Hard to rotate
-- Security risk if exposed
-```
 
-**🟢 NEW WAY (Secure - OIDC):**
-```
-GitHub Actions → AWS STS → Temporary tokens (1 hour)
-- No long-lived credentials
+**New Way (Secure):**
+- GitHub Actions authenticates via OIDC
+- AWS provides temporary tokens (1-hour lifespan)
+- No long-lived credentials stored
 - Automatic expiration
-- Scoped permissions
-- Complete audit trail
-```
 
-### Step 3.1: Create OIDC Identity Provider
+### Step 2.1: Create OIDC Identity Provider in AWS
 
-**Status:** 🔴 **MANUAL** - One-time AWS Console/CLI setup
+🔴 **MANUAL** - One-time setup (5 minutes)
 
-**Duration:** 10 minutes
-
-**Method 1: AWS Console (Easiest)**
-
-```
-1. Open: https://console.aws.amazon.com/iam/
-2. Click: Identity providers → Add provider
-3. Configure:
-   - Provider type: OpenID Connect
-   - Provider URL: https://token.actions.githubusercontent.com
-   - Audience: sts.amazonaws.com
-4. Click: Add provider
-```
-
-**Method 2: AWS CLI (Faster if familiar)**
+**Method 1: AWS CLI (Recommended - Faster)**
 
 ```powershell
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
+# Create OIDC provider for GitHub Actions
+aws iam create-open-id-connect-provider `
+  --url https://token.actions.githubusercontent.com `
+  --client-id-list sts.amazonaws.com `
   --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+
+# Expected output:
+# {
+#     "OpenIDConnectProviderArn": "arn:aws:iam::891807086260:oidc-provider/token.actions.githubusercontent.com"
+# }
 ```
 
-**✅ Checkpoint:** Identity provider appears in IAM → Identity providers
+**Method 2: AWS Console (If you prefer UI)**
 
-### Step 3.2: Create IAM Roles for GitHub Actions
+```
+1. Go to: https://console.aws.amazon.com/iam/
+2. Click: Identity providers → Add provider
+3. Provider type: OpenID Connect
+4. Provider URL: https://token.actions.githubusercontent.com
+5. Audience: sts.amazonaws.com
+6. Click: Add provider
+```
 
-**Status:** 🔴 **MANUAL** - Create 3 roles (dev, staging, prod)
+**Verify it was created:**
+```powershell
+aws iam list-open-id-connect-providers
+```
 
-**Duration:** 15 minutes
+✅ **Checkpoint:** You see the OIDC provider ARN in the output
 
-> **⚠️ PRODUCTION WARNING:** The example below uses a **personal GitHub username**, which creates maintenance issues when users leave. For production use, see **[Trust Policy Best Practices](./TRUST_POLICY_BEST_PRACTICES.md)** for organization-based setup.
+### Step 2.2: Create IAM Role for GitHub Actions
 
-**Create trust policy file:**
+🔴 **MANUAL** - Create role with trust policy (10 minutes)
+
+**Important:** Replace placeholders with YOUR actual values:
+- `YOUR_ACCOUNT_ID` → Your AWS account ID (e.g., 891807086260)
+- `YOUR_GITHUB_USERNAME` → Your GitHub username (e.g., suddhasish)
+- `YOUR_REPO_NAME` → Your repo name (e.g., mlopsaws)
+
+**Option A: Create role with inline JSON (Windows - Recommended)**
 
 ```powershell
-# Get your AWS account ID
+# Get your account ID
 $accountId = aws sts get-caller-identity --query Account --output text
-Write-Host "Your AWS Account ID: $accountId"
+Write-Host "Account ID: $accountId"
 
-# OPTION 1: Personal Repository (Learning/Development Only)
-# ⚠️ Issue: Requires trust policy update when user leaves
+# REPLACE THESE with your GitHub details
+$githubUsername = "suddhasish"  # ← Your GitHub username
+$repoName = "mlopsaws"          # ← Your repo name
 
-# Create trust-policy-dev.json
+# Create the role with inline JSON (avoids file encoding issues)
+aws iam create-role `
+  --role-name GitHubActions-MLOps-Dev `
+  --assume-role-policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Federated\":\"arn:aws:iam::${accountId}:oidc-provider/token.actions.githubusercontent.com\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"token.actions.githubusercontent.com:aud\":\"sts.amazonaws.com\"},\"StringLike\":{\"token.actions.githubusercontent.com:sub\":\"repo:${githubUsername}/${repoName}:*\"}}}]}" `
+  --description "GitHub Actions role for MLOps dev environment"
+
+# Expected output: JSON with Role ARN
+```
+
+**Option B: Create role using file (if inline method fails)**
+
+```powershell
+# Create trust policy file
 @"
 {
   "Version": "2012-10-17",
@@ -353,7 +422,7 @@ Write-Host "Your AWS Account ID: $accountId"
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::${accountId}:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::$accountId:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -361,23 +430,70 @@ Write-Host "Your AWS Account ID: $accountId"
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_USERNAME/mlopsaws:*"
+          "token.actions.githubusercontent.com:sub": "repo:$githubUsername/$repoName:*"
         }
       }
     }
   ]
 }
-"@ | Out-File -FilePath trust-policy-dev.json -Encoding utf8
+"@ | Out-File -FilePath trust-policy-dev.json -Encoding ascii
 
-# ⚠️ REPLACE: YOUR_GITHUB_USERNAME with your actual GitHub username
-# Example: "repo:suddhasish/mlopsaws:*"
+# Create role from file
+aws iam create-role `
+  --role-name GitHubActions-MLOps-Dev `
+  --assume-role-policy-document file://trust-policy-dev.json `
+  --description "GitHub Actions role for MLOps dev environment"
+```
 
-# OPTION 2: GitHub Organization (Production-Ready) ✅ RECOMMENDED
-# ✅ Benefit: No changes needed when users leave
-# See: docs/TRUST_POLICY_BEST_PRACTICES.md for complete setup
+**If you get "MalformedPolicyDocument"** → See [Troubleshooting Issue 0](#issue-0-malformedpolicydocument---invalid-json-error)
 
-# Uncomment this block for organization-based trust:
-<#
+### Step 2.3: Attach Permissions to the Role
+
+🔴 **MANUAL** - Give role necessary AWS permissions (5 minutes)
+
+```powershell
+# Attach SageMaker permissions
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+
+# Attach S3 permissions
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+# Attach IAM permissions (to create SageMaker roles)
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
+```
+
+### Step 2.4: Get and Save the Role ARN
+
+🔴 **MANUAL** - You'll need this for GitHub Secrets (1 minute)
+
+```powershell
+# Get the role ARN
+aws iam get-role --role-name GitHubActions-MLOps-Dev --query 'Role.Arn' --output text
+
+# Example output:
+# arn:aws:iam::891807086260:role/GitHubActions-MLOps-Dev
+```
+
+**📋 SAVE THIS ARN** - You'll add it to GitHub Secrets in the next step!
+
+**Verify everything is configured:**
+```powershell
+# Check role exists
+aws iam get-role --role-name GitHubActions-MLOps-Dev
+
+# Check attached policies
+aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev
+```
+
+✅ **Checkpoint:** You have a role ARN like `arn:aws:iam::ACCOUNT_ID:role/GitHubActions-MLOps-Dev`
+
+---
 $orgName = "YOUR_ORG_NAME"  # e.g., "acme-corp"
 @"
 {
@@ -407,24 +523,66 @@ $orgName = "YOUR_ORG_NAME"  # e.g., "acme-corp"
 **Create the IAM roles:**
 
 ```powershell
+# Set AWS_PROFILE for convenience (use your configured profile)
+$env:AWS_PROFILE = "mlops-dev"
+
+# IMPORTANT: Windows PowerShell - Use inline JSON to avoid file encoding issues
 # Dev Environment Role
-aws iam create-role \
-  --role-name GitHubActions-MLOps-Dev \
-  --assume-role-policy-document file://trust-policy-dev.json \
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam create-role `
+  --role-name GitHubActions-MLOps-Dev `
+  --assume-role-policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Federated\":\"arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"token.actions.githubusercontent.com:aud\":\"sts.amazonaws.com\"},\"StringLike\":{\"token.actions.githubusercontent.com:sub\":\"repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:*\"}}}]}' `
   --description "GitHub Actions role for MLOps dev environment"
 
-# Attach AdministratorAccess (for initial setup - will narrow later)
-aws iam attach-role-policy \
-  --role-name GitHubActions-MLOps-Dev \
-  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+# OR if using file (ensure no encoding issues):
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam create-role `
+  --role-name GitHubActions-MLOps-Dev `
+  --assume-role-policy-document file://trust-policy-dev.json `
+  --description "GitHub Actions role for MLOps dev environment"
+
+# Attach required policies (more secure than AdministratorAccess)
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
 
 # Get Role ARN (save this!)
-aws iam get-role --role-name GitHubActions-MLOps-Dev --query 'Role.Arn' --output text
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam get-role --role-name GitHubActions-MLOps-Dev --query 'Role.Arn' --output text
 ```
 
 **Expected output:**
 ```
-arn:aws:iam::123456789012:role/GitHubActions-MLOps-Dev
+arn:aws:iam::891807086260:role/GitHubActions-MLOps-Dev
+```
+
+**✅ Success Example (from actual setup):**
+```json
+{
+    "Role": {
+        "RoleName": "GitHubActions-MLOps-Dev",
+        "Arn": "arn:aws:iam::891807086260:role/GitHubActions-MLOps-Dev",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {
+                    "Federated": "arn:aws:iam::891807086260:oidc-provider/token.actions.githubusercontent.com"
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                    "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
+                    "StringLike": {"token.actions.githubusercontent.com:sub": "repo:suddhasish/mlopsaws:*"}
+                }
+            }]
+        }
+    }
+}
 ```
 
 **Repeat for Staging and Production:**
@@ -453,100 +611,286 @@ aws iam attach-role-policy \
 
 ---
 
-## 4️⃣ Manual Steps - GitHub Configuration
+## 3️⃣ GitHub Repository Setup
 
-### Step 4.1: Add GitHub Secrets
+### Step 3.1: Fork or Clone the Repository
 
-**Status:** 🔴 **MANUAL** - GitHub repository settings
-
-**Duration:** 10 minutes
-
-**Navigate to:**
-```
-Your GitHub Repository → Settings → Secrets and variables → Actions
-```
-
-**Click:** "New repository secret"
-
-**Add these secrets one by one:**
-
-| Secret Name | Value | Where to Get |
-|-------------|-------|--------------|
-| `AWS_ROLE_ARN_DEV` | `arn:aws:iam::123456789012:role/GitHubActions-MLOps-Dev` | From Step 3.2 |
-| `AWS_ROLE_ARN_STAGING` | `arn:aws:iam::123456789012:role/GitHubActions-MLOps-Staging` | From Step 3.2 |
-| `AWS_ROLE_ARN_PROD` | `arn:aws:iam::123456789012:role/GitHubActions-MLOps-Prod` | From Step 3.2 |
-
-**⚠️ IMPORTANT:** Replace `123456789012` with your actual AWS account ID!
-
-**Screenshots/Steps:**
-```
-1. Click "New repository secret"
-2. Name: AWS_ROLE_ARN_DEV
-3. Secret: arn:aws:iam::YOUR_ACCOUNT_ID:role/GitHubActions-MLOps-Dev
-4. Click "Add secret"
-5. Repeat for STAGING and PROD
-```
-
-**✅ Checkpoint:** All 3 secrets visible in repository settings
-
-### Step 4.2: Configure Environment Protection Rules
-
-**Status:** 🔴 **MANUAL** - GitHub repository settings
-
-**Duration:** 5 minutes
-
-**Navigate to:**
-```
-Your GitHub Repository → Settings → Environments
-```
-
-**Create Dev Environment (No approval required):**
-```
-1. Click "New environment"
-2. Name: dev
-3. ☐ Required reviewers: (leave empty)
-4. ☐ Wait timer: 0 minutes
-5. Deployment branches:
-   ☑️ Selected branches
-   Add: develop
-6. Click "Save protection rules"
-```
-
-**Create Staging Environment (Optional approval):**
-```
-1. Click "New environment"
-2. Name: staging
-3. ☑️ Required reviewers: [Add yourself or team lead]
-4. ☐ Wait timer: 0 minutes
-5. Deployment branches:
-   ☑️ Selected branches
-   Add: main
-6. Click "Save protection rules"
-```
-
-**Create Production Environment (Manual approval REQUIRED):**
-```
-1. Click "New environment"
-2. Name: production
-3. ☑️ Required reviewers: [Add yourself + manager]
-4. ☐ Wait timer: 0 minutes (or set to 30 minutes for safety)
-5. Deployment branches:
-   ☑️ Selected branches
-   Add: main only
-6. Click "Save protection rules"
-```
-
-**✅ Checkpoint:** Three environments configured with appropriate protections
-
-### Step 4.3: Create Branch Structure
-
-**Status:** 🔴 **MANUAL** - Local Git commands
-
-**Duration:** 2 minutes
+🔴 **MANUAL** - Get the code (2 minutes)
 
 ```powershell
-# Ensure you're in the repository
+# Option 1: Fork on GitHub (recommended for learning)
+# Go to: https://github.com/suddhasish/mlopsaws
+# Click: Fork → Create fork
+
+# Clone your fork
+git clone https://github.com/YOUR_USERNAME/mlopsaws.git
 cd mlopsaws
+
+# Option 2: Clone directly (if you have write access)
+git clone https://github.com/suddhasish/mlopsaws.git
+cd mlopsaws
+```
+
+### Step 3.2: Add GitHub Secrets
+
+🔴 **MANUAL** - Configure secrets (5 minutes)
+
+**Go to your repository settings:**
+```
+https://github.com/YOUR_USERNAME/mlopsaws/settings/secrets/actions
+```
+
+**Click "New repository secret" and add:**
+
+| Secret Name | Value | Example |
+|-------------|-------|---------|
+| `AWS_ROLE_ARN` | Your role ARN from Step 2.4 | `arn:aws:iam::891807086260:role/GitHubActions-MLOps-Dev` |
+| `AWS_REGION` | AWS region to use | `us-east-1` |
+
+**Steps:**
+```
+1. Click "New repository secret"
+2. Name: AWS_ROLE_ARN
+3. Value: arn:aws:iam::YOUR_ACCOUNT_ID:role/GitHubActions-MLOps-Dev
+4. Click "Add secret"
+
+5. Click "New repository secret" again
+6. Name: AWS_REGION
+7. Value: us-east-1
+8. Click "Add secret"
+```
+
+**⚠️ Replace** `YOUR_ACCOUNT_ID` with your actual AWS account ID!
+
+✅ **Checkpoint:** You see 2 secrets in the list (values hidden as •••••••)
+
+---
+
+## 4️⃣ Configuration Files
+
+### Step 4.1: Update Terraform Variables
+
+🔴 **MANUAL** - Edit config with your AWS details (5 minutes)
+
+**File location:**
+```
+infrastructure/terraform/environments/dev/terraform.tfvars
+```
+
+**What to change:**
+
+```hcl
+# ==========================================
+# REQUIRED: UPDATE THESE 4 VALUES
+# ==========================================
+
+# 1. Your AWS Account ID (from Step 1.3)
+aws_account_id = "891807086260"  # ⚠️ REPLACE with YOUR account ID
+
+# 2. Your email (for cost alerts)
+owner_email = "your.email@company.com"  # ⚠️ REPLACE with YOUR email
+
+# 3. Your GitHub repository
+repository_url = "https://github.com/YOUR_USERNAME/mlopsaws"  # ⚠️ REPLACE
+
+# 4. Alert email
+alert_email_endpoints = ["your.email@company.com"]  # ⚠️ REPLACE
+
+# ==========================================
+# OPTIONAL: Keep these defaults or customize
+# ==========================================
+
+aws_region     = "us-east-1"      # Change if using different region
+project_name   = "mlops-diabetes" # Project name prefix
+environment    = "dev"            # Environment name
+
+# Cost Optimization (recommended for learning)
+budget_amount        = 100        # Monthly budget in USD
+enable_auto_shutdown = true       # Saves 60% (stops endpoints 7PM-8AM UTC)
+enable_vpc           = false      # Use default VPC (free)
+enable_kms_encryption = false     # Use AES256 encryption (free)
+
+# Instance types (smallest for cost)
+sagemaker_processing_instance_type = "ml.t3.medium"
+sagemaker_training_instance_type   = "ml.m5.large"
+sagemaker_endpoint_instance_type   = "ml.t2.medium"
+```
+
+**Quick verification:**
+```powershell
+# Check your changes
+git diff infrastructure/terraform/environments/dev/terraform.tfvars
+```
+
+✅ **Checkpoint:** File saved with your AWS account ID, email, and GitHub repo URL
+
+### Step 4.2: Commit and Push to GitHub
+
+🔴 **MANUAL** - Trigger the automation (2 minutes)
+
+```powershell
+# Make sure you're in the repository directory
+cd mlopsaws
+
+# Stage your changes
+git add infrastructure/terraform/environments/dev/terraform.tfvars
+
+# Commit
+git commit -m "Configure AWS account and email for dev environment"
+
+# Push to GitHub (this triggers GitHub Actions!)
+git push origin main
+```
+
+**What happens next (automatically):**
+```
+GitHub detects the push → Triggers workflows → Deploys to AWS
+```
+
+✅ **Checkpoint:** Code pushed successfully, you see it on GitHub
+
+---
+
+## 5️⃣ Infrastructure Deployment (AUTOMATED)
+
+### What Happens Automatically
+
+🟢 **AUTOMATED** - GitHub Actions does everything (10-15 minutes)
+
+**Once you push code (Step 4.2), GitHub Actions automatically:**
+
+1. **Authenticates to AWS** via OIDC (no keys!)
+2. **Validates** Terraform syntax
+3. **Scans** for security issues
+4. **Plans** infrastructure changes
+5. **Applies** changes to AWS
+6. **Creates** all AWS resources:
+   - S3 bucket for data/models
+   - IAM roles for SageMaker
+   - SageMaker model registry
+   - CloudWatch log groups
+   - SNS topics for alerts
+   - Budget alarms
+
+### How to Watch Progress
+
+**Go to GitHub Actions:**
+```
+https://github.com/YOUR_USERNAME/mlopsaws/actions
+```
+
+**You'll see:**
+- Workflow: "Terraform Infrastructure CI/CD"
+- Status: 🟡 In Progress → 🟢 Success (or 🔴 Failed)
+- Duration: ~10-15 minutes
+
+**Click on the running workflow to see:**
+- terraform-plan (shows what will be created)
+- terraform-apply (creates AWS resources)
+- Real-time logs
+
+**Success indicators:**
+```
+✅ Terraform initialized
+✅ Plan generated (X resources to create)
+✅ Apply complete! Resources: X added, 0 changed, 0 destroyed
+✅ S3 bucket created: mlops-diabetes-dev-ACCOUNT_ID
+✅ IAM roles created
+```
+
+### Verify in AWS Console
+
+**Check S3 bucket was created:**
+```powershell
+aws s3 ls | findstr mlops-diabetes
+# Expected: mlops-diabetes-dev-891807086260
+```
+
+**Check IAM roles:**
+```powershell
+aws iam list-roles --query "Roles[?contains(RoleName,'SageMaker')].RoleName"
+# Expected: MLOps-SageMaker-ExecutionRole-dev, etc.
+```
+
+✅ **Checkpoint:** Workflow completed successfully, AWS resources exist
+
+---
+
+## 6️⃣ MLOps Pipeline Execution (AUTOMATED)
+
+### What Happens Automatically
+
+🟢 **AUTOMATED** - GitHub Actions runs the ML pipeline (25-30 minutes)
+
+**The ML pipeline workflow automatically:**
+
+1. **Downloads** Pima Indians Diabetes dataset
+2. **Uploads** data to S3
+3. **Creates** SageMaker pipeline
+4. **Runs** data processing
+5. **Trains** XGBoost model
+6. **Evaluates** model performance
+7. **Registers** model in registry
+8. **Deploys** to SageMaker endpoint
+9. **Sets up** Model Monitor
+
+### Watch the ML Pipeline
+
+**Go to GitHub Actions:**
+```
+https://github.com/YOUR_USERNAME/mlopsaws/actions
+```
+
+**Workflow:** "MLOps Pipeline"
+
+**Jobs running in parallel:**
+- code-quality (black, flake8, pylint)
+- unit-tests (pytest)
+- upload-data (downloads dataset, uploads to S3)
+- sagemaker-pipeline (trains & deploys model)
+
+**Success indicators:**
+```
+✅ Code quality passed
+✅ Tests passed (X passed)
+✅ Data uploaded to s3://mlops-diabetes-dev-ACCOUNT_ID/data/
+✅ SageMaker pipeline created
+✅ Training job completed (accuracy: 0.XX)
+✅ Model registered (model version: X)
+✅ Endpoint deployed: diabetes-endpoint-TIMESTAMP
+✅ Model Monitor configured
+```
+
+### Verify Model Deployment
+
+**Check SageMaker endpoint:**
+```powershell
+aws sagemaker list-endpoints
+# Look for: diabetes-endpoint-TIMESTAMP
+```
+
+**Test the endpoint:**
+```powershell
+# Create test data
+$testData = @"
+6,148,72,35,0,33.6,0.627,50
+"@
+
+# Invoke endpoint
+aws sagemaker-runtime invoke-endpoint `
+  --endpoint-name diabetes-endpoint-TIMESTAMP `
+  --content-type text/csv `
+  --body $testData `
+  output.json
+
+# Check prediction
+Get-Content output.json
+# Expected: [0] or [1] (diabetes prediction)
+```
+
+✅ **Checkpoint:** Model deployed and responding to predictions
+
+---
 
 # Create develop branch
 git checkout -b develop
@@ -1544,6 +1888,82 @@ These checks are **built into the MLOps pipeline workflow** - validation happens
 
 ## 🔟 Troubleshooting
 
+### Issue 0: MalformedPolicyDocument - Invalid JSON Error
+
+**Error:**
+```
+An error occurred (MalformedPolicyDocument) when calling the CreateRole operation: This policy contains invalid Json
+```
+
+**Status:** 🔴 **MANUAL FIX**
+
+**Root Cause:** Windows file encoding (UTF-8 BOM) or file content issues when using `file://trust-policy-dev.json`
+
+**Solutions (in order of preference):**
+
+**Solution 1: Use inline JSON (RECOMMENDED for Windows)**
+```powershell
+# Use inline JSON to avoid file encoding issues entirely
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam create-role `
+  --role-name GitHubActions-MLOps-Dev `
+  --assume-role-policy-document '{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Federated\":\"arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"token.actions.githubusercontent.com:aud\":\"sts.amazonaws.com\"},\"StringLike\":{\"token.actions.githubusercontent.com:sub\":\"repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:*\"}}}]}' `
+  --description "GitHub Actions role for MLOps dev environment"
+```
+
+**Solution 2: Recreate file with ASCII encoding**
+```powershell
+# Delete old file
+Remove-Item -Path "trust-policy-dev.json" -Force
+
+# Create with ASCII encoding (no BOM)
+@'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::891807086260:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:suddhasish/mlopsaws:*"
+        }
+      }
+    }
+  ]
+}
+'@ | Out-File -FilePath "trust-policy-dev.json" -Encoding ascii
+
+# Then retry the create-role command
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam create-role `
+  --role-name GitHubActions-MLOps-Dev `
+  --assume-role-policy-document file://trust-policy-dev.json `
+  --description "GitHub Actions role for MLOps dev environment"
+```
+
+**Solution 3: Verify JSON syntax**
+```powershell
+# Validate JSON using PowerShell
+Get-Content trust-policy-dev.json | ConvertFrom-Json
+# If this fails, there's a JSON syntax error
+
+# Check for duplicate lines or encoding issues
+Get-Content trust-policy-dev.json -Raw
+```
+
+**✅ Verification:**
+```powershell
+# If successful, you'll see:
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" iam get-role --role-name GitHubActions-MLOps-Dev
+```
+
+---
+
 ### Issue 1: OIDC Authentication Failed
 
 **Error:**
@@ -1576,7 +1996,132 @@ aws iam update-assume-role-policy \
   --policy-document file://trust-policy-dev.json
 ```
 
-### Issue 2: Terraform State Lock
+### Issue 2: AWS CLI Not Recognized After Installation
+
+**Error:**
+```powershell
+aws : The term 'aws' is not recognized as the name of a cmdlet, function, script file, or operable program.
+```
+
+**Status:** 🔴 **MANUAL FIX**
+
+**Root Cause:** PowerShell loads PATH variable when it starts. After installing AWS CLI, the PATH is updated but current PowerShell session hasn't reloaded it.
+
+**Solutions:**
+
+**Solution 1: Restart PowerShell (RECOMMENDED)**
+```powershell
+# Close and reopen PowerShell
+# PATH will include AWS CLI automatically
+```
+
+**Solution 2: Use full path temporarily**
+```powershell
+# Use full path to aws.exe until you restart PowerShell
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" --version
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" configure --profile mlops-dev
+```
+
+**Solution 3: Reload PATH in current session**
+```powershell
+# Refresh environment variables without restarting
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+# Verify
+aws --version
+```
+
+---
+
+### Issue 3: Unable to Locate AWS Credentials
+
+**Error:**
+```
+Unable to locate credentials. You can configure credentials by running "aws configure".
+```
+
+**Status:** 🔴 **MANUAL FIX**
+
+**Root Cause:** Either credentials not configured OR forgot to specify `--profile` flag
+
+**Solutions:**
+
+**Solution 1: Set default profile for session**
+```powershell
+# Set environment variable for current session
+$env:AWS_PROFILE = "mlops-dev"
+
+# Now all aws commands use this profile automatically
+aws sts get-caller-identity
+```
+
+**Solution 2: Always specify profile**
+```powershell
+# Add --profile to every command
+aws iam create-role --role-name GitHubActions-MLOps-Dev --profile mlops-dev
+```
+
+**Solution 3: Configure credentials if not done**
+```powershell
+# Run configure to set up credentials
+aws configure --profile mlops-dev
+
+# Enter:
+# AWS Access Key ID: AKIA...
+# AWS Secret Access Key: ...
+# Default region: us-east-1
+# Default output format: json
+```
+
+---
+
+### Issue 4: InvalidClientTokenId Error
+
+**Error:**
+```
+An error occurred (InvalidClientTokenId) when calling the GetCallerIdentity operation: 
+The security token included in the request is invalid
+```
+
+**Status:** 🔴 **MANUAL FIX**
+
+**Root Cause:** Access Key ID is incorrect, deleted, or never existed
+
+**Solutions:**
+
+**Solution 1: Get fresh access keys from AWS Console**
+```
+1. Go to AWS Console → IAM → Users → Your User
+2. Click "Security credentials" tab
+3. Click "Create access key"
+4. Choose "Command Line Interface (CLI)"
+5. Download or copy Access Key ID and Secret Access Key
+6. Run: aws configure --profile mlops-dev
+7. Enter the new keys
+```
+
+**Solution 2: Verify credentials file**
+```powershell
+# Check credentials file location
+notepad $env:USERPROFILE\.aws\credentials
+
+# Should look like:
+# [mlops-dev]
+# aws_access_key_id = AKIA...
+# aws_secret_access_key = ...
+```
+
+**✅ Verification:**
+```powershell
+# Test credentials
+aws sts get-caller-identity --profile mlops-dev
+
+# Should return JSON with UserId, Account, and Arn
+```
+
+---
+
+### Issue 5: Terraform State Lock
 
 **Error:**
 ```
