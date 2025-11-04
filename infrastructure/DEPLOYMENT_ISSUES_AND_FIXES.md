@@ -50,27 +50,44 @@ The error is because budget creation requires special handling. We'll keep budge
 ### ⚠️ Issue 5: SageMaker Model Package Group Quota
 **Error:** `The account-level service limit 'Maximum number of SageMaker Model Package Groups allowed per account' is 0`
 
-**Solution:** Request quota increase from AWS
+**Solution:** Request quota increase from AWS Console (CLI quota codes may vary)
 
-**Option A - AWS Console (Recommended):**
-1. Go to: https://console.aws.amazon.com/servicequotas/
-2. Search for "SageMaker"
-3. Find "Model package groups per account"
-4. Click "Request quota increase"
-5. Request new value: 10 (or higher)
-6. Submit request (usually approved in 24-48 hours)
+**AWS Console Method (RECOMMENDED):**
 
-**Option B - AWS CLI:**
-```powershell
-aws service-quotas request-service-quota-increase `
-    --service-code sagemaker `
-    --quota-code L-7B5A4C83 `
-    --desired-value 10 `
-    --profile mlops-dev
-```
+1. **Go to Service Quotas Console:**
+   - Direct link: https://console.aws.amazon.com/servicequotas/home/services/sagemaker/quotas
+   - Or: AWS Console → Service Quotas → AWS Services → Amazon SageMaker
 
-**Temporary Workaround:** Comment out the SageMaker module until quota is increased
-(Not recommended - this is a core feature)
+2. **Find the quota:**
+   - Search for: "Model package groups"
+   - Full name: "Model package groups per account"
+   - Current value: 0
+   - Default value: Usually 100
+
+3. **Request increase:**
+   - Click on "Model package groups per account"
+   - Click "Request quota increase"
+   - Enter desired value: **10** (or higher if you plan many models)
+   - Click "Request"
+
+4. **Wait for approval:**
+   - Usually approved in: 15 minutes to 48 hours
+   - You'll receive email notification
+   - Check status: Service Quotas → Dashboard → Quota request history
+
+**Alternative - AWS Support Ticket:**
+If Service Quotas doesn't work, create a support case:
+1. Go to: https://console.aws.amazon.com/support/home
+2. Click "Create case"
+3. Select "Service limit increase"
+4. Service: Amazon SageMaker
+5. Limit type: Model Package Groups
+6. Request: Increase to 10
+
+**Why this error occurs:**
+- New AWS accounts have 0 quota for Model Package Groups by default
+- This is a security/cost measure
+- First request is usually auto-approved quickly
 
 ---
 
@@ -93,14 +110,12 @@ aws iam attach-role-policy `
 
 # 3. Verify all policies (should show 8 policies now)
 aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profile mlops-dev
-
-# 4. Request SageMaker quota increase
-aws service-quotas request-service-quota-increase `
-    --service-code sagemaker `
-    --quota-code L-7B5A4C83 `
-    --desired-value 10 `
-    --profile mlops-dev
 ```
+
+**Then manually in AWS Console:**
+- Go to: https://console.aws.amazon.com/servicequotas/home/services/sagemaker/quotas
+- Search for "Model package groups per account"
+- Request increase to 10
 
 ---
 
