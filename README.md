@@ -203,6 +203,25 @@ This single comprehensive guide contains **everything** you need:
 
 ---
 
+### 🔐 **Important: Production Security**
+
+**Before setting up for production or team use:**
+
+📖 **Read:** [docs/TRUST_POLICY_BEST_PRACTICES.md](docs/TRUST_POLICY_BEST_PRACTICES.md)
+
+**Why?** The default setup uses **personal GitHub usernames** in AWS trust policies. This creates problems when team members leave:
+
+- ❌ **Username approach:** Requires manual AWS policy updates when users leave (30-45 min)
+- ✅ **Organization approach:** Zero changes needed when users leave (10 seconds)
+
+**Quick Decision:**
+- 🎓 **Learning/Testing?** → Username-based trust is fine
+- 🏢 **Production/Team?** → Use organization-based trust (one-time 15 min setup)
+
+**See:** [docs/TRUST_POLICY_QUICK_REFERENCE.md](docs/TRUST_POLICY_QUICK_REFERENCE.md) for quick comparison
+
+---
+
 ### Quick Overview (Read Full Guide for Details)
 
 **Step 1: Manual Setup (1 hour)**

@@ -34,7 +34,30 @@ The root folder contains additional documentation for specific topics:
 | `MODEL_APPROVAL_GUIDE.md` | Model registry workflow | When implementing model governance |
 | `ENVIRONMENT_STRATEGY.md` | Multi-environment setup | When scaling to staging/production |
 
-**All of these are OPTIONAL and provide additional context.**
+**Documentation in this folder (docs/):**
+
+| File | Purpose | When to Read |
+|------|---------|--------------|
+| [COMPLETE_SETUP_GUIDE.md](./COMPLETE_SETUP_GUIDE.md) | ⭐ **THE MAIN GUIDE** | Start here (required) |
+| [TRUST_POLICY_BEST_PRACTICES.md](./TRUST_POLICY_BEST_PRACTICES.md) | 🔐 Production-ready OIDC setup | Before production deployment |
+| [TRUST_POLICY_QUICK_REFERENCE.md](./TRUST_POLICY_QUICK_REFERENCE.md) | 🔐 Quick decision guide | When choosing trust policy approach |
+| [CONSOLIDATION_SUMMARY.md](./CONSOLIDATION_SUMMARY.md) | 📋 Documentation history | Optional - explains doc structure |
+
+**All root folder docs are OPTIONAL and provide additional context.**
+
+---
+
+## 🔐 Security Note: Trust Policies
+
+**Important:** If setting up for production or a team:
+
+📖 **Read:** [TRUST_POLICY_BEST_PRACTICES.md](./TRUST_POLICY_BEST_PRACTICES.md)
+
+**Why?** The default setup uses personal GitHub usernames in trust policies. When users leave:
+- ❌ **Personal setup:** Requires manual AWS/GitHub updates
+- ✅ **Organization setup:** No changes needed (just remove from team)
+
+**Quick Guide:** [TRUST_POLICY_QUICK_REFERENCE.md](./TRUST_POLICY_QUICK_REFERENCE.md)
 
 ---
 

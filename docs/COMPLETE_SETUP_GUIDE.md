@@ -329,12 +329,17 @@ aws iam create-open-id-connect-provider \
 
 **Duration:** 15 minutes
 
+> **⚠️ PRODUCTION WARNING:** The example below uses a **personal GitHub username**, which creates maintenance issues when users leave. For production use, see **[Trust Policy Best Practices](./TRUST_POLICY_BEST_PRACTICES.md)** for organization-based setup.
+
 **Create trust policy file:**
 
 ```powershell
 # Get your AWS account ID
 $accountId = aws sts get-caller-identity --query Account --output text
 Write-Host "Your AWS Account ID: $accountId"
+
+# OPTION 1: Personal Repository (Learning/Development Only)
+# ⚠️ Issue: Requires trust policy update when user leaves
 
 # Create trust-policy-dev.json
 @"
@@ -362,6 +367,37 @@ Write-Host "Your AWS Account ID: $accountId"
 
 # ⚠️ REPLACE: YOUR_GITHUB_USERNAME with your actual GitHub username
 # Example: "repo:suddhasish/mlopsaws:*"
+
+# OPTION 2: GitHub Organization (Production-Ready) ✅ RECOMMENDED
+# ✅ Benefit: No changes needed when users leave
+# See: docs/TRUST_POLICY_BEST_PRACTICES.md for complete setup
+
+# Uncomment this block for organization-based trust:
+<#
+$orgName = "YOUR_ORG_NAME"  # e.g., "acme-corp"
+@"
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::${accountId}:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:${orgName}/mlopsaws:*"
+        }
+      }
+    }
+  ]
+}
+"@ | Out-File -FilePath trust-policy-dev.json -Encoding utf8
+#>
 ```
 
 **Create the IAM roles:**
@@ -1684,6 +1720,85 @@ max_wait_time_in_seconds = 3600
 aws s3 ls s3://mlops-diabetes-123456789012-dev/
 aws s3 rm s3://mlops-diabetes-123456789012-dev/old-data/ --recursive
 ```
+
+### Issue 7: User Left Organization - Need to Update Trust Policy
+
+**Problem:** Team member who set up OIDC left, workflows failing with access denied.
+
+**Symptoms:**
+```
+Error: Not authorized to perform sts:AssumeRoleWithWebIdentity
+Trust policy references: repo:old-user/mlopsaws:*
+Current repo: repo:new-user/mlopsaws:*
+```
+
+**Solution 1: Quick Fix - Update Trust Policy (If Personal Repo)**
+
+```powershell
+# Get new username and account details
+$newUsername = "new-user"  # Replace with actual username
+$accountId = aws sts get-caller-identity --query Account --output text
+
+# Create updated trust policy
+@"
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::${accountId}:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:${newUsername}/mlopsaws:*"
+        }
+      }
+    }
+  ]
+}
+"@ | Out-File -FilePath trust-policy-updated.json -Encoding utf8
+
+# Update each role
+aws iam update-assume-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-document file://trust-policy-updated.json
+
+aws iam update-assume-role-policy `
+  --role-name GitHubActions-MLOps-Staging `
+  --policy-document file://trust-policy-updated.json
+
+aws iam update-assume-role-policy `
+  --role-name GitHubActions-MLOps-Prod `
+  --policy-document file://trust-policy-updated.json
+
+Write-Host "✅ Trust policies updated for new user: $newUsername"
+```
+
+**Solution 2: Long-Term Fix - Migrate to Organization (RECOMMENDED)**
+
+This prevents future issues when users change:
+
+```powershell
+# See: docs/TRUST_POLICY_BEST_PRACTICES.md for complete guide
+
+# Quick summary:
+# 1. Create GitHub organization (free)
+# 2. Transfer repository to organization
+# 3. Update trust policy to use org name instead of username
+# 4. Manage access via teams (user-independent)
+
+# Result: When users leave, just remove from team - no AWS changes needed!
+```
+
+**Prevention:**
+- **For Learning/Development:** Username-based trust is acceptable
+- **For Production:** Always use organization-based trust policies
+- **See:** `docs/TRUST_POLICY_BEST_PRACTICES.md` for migration guide
 
 ---
 
