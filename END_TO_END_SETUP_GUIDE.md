@@ -1,16 +1,67 @@
 # 🚀 END-TO-END SETUP GUIDE
 ## Complete MLOps AWS SageMaker Project - From Zero to Production
 
-**Version:** 1.0  
+**Version:** 2.0 - CI/CD Deployment  
 **Last Updated:** November 4, 2025  
-**Estimated Time:** 4-6 hours for complete setup  
+**Estimated Time:** 2-3 hours for CI/CD setup | 4-6 hours for local setup  
 **Difficulty:** Intermediate
 
 ---
 
-## ⚡ QUICK START (For Experienced Users)
+## 🎯 CHOOSE YOUR DEPLOYMENT METHOD
 
-If you already have AWS account, CLI configured, and Terraform installed:
+### ⭐ **RECOMMENDED: GitHub Actions CI/CD Deployment**
+
+**Benefits:**
+- ✅ 100% automated infrastructure deployment
+- ✅ No local Terraform installation required
+- ✅ Built-in security (OIDC, no long-lived credentials)
+- ✅ Automatic cost estimates on every change
+- ✅ Manual approval gates for production
+- ✅ Complete audit trail via GitHub Actions
+- ✅ Team collaboration without credential sharing
+
+**Time:** 2-3 hours (one-time setup)
+
+**👉 [Follow CI/CD Deployment Guide](CICD_DEPLOYMENT_GUIDE.md)** ← Start here for automated deployment
+
+---
+
+### Alternative: Local Deployment (Learning/Testing)
+
+**When to use:**
+- Learning Terraform hands-on
+- No GitHub repository available
+- Quick prototyping
+- Offline development
+
+**Time:** 4-6 hours
+
+**Continue reading below for local deployment steps.**
+
+---
+
+## ⚡ QUICK START
+
+### GitHub Actions (Recommended)
+
+```powershell
+# 1. Setup AWS OIDC (one-time)
+# Follow: CICD_DEPLOYMENT_GUIDE.md → Section 2
+
+# 2. Configure GitHub Secrets
+# Settings → Secrets → Add AWS_ROLE_ARN_DEV
+
+# 3. Push to trigger deployment
+git checkout develop
+git push origin develop
+# Watch deployment in GitHub Actions tab
+
+# 4. Verify in AWS Console
+# Infrastructure auto-deployed! ✅
+```
+
+### Local Deployment (Alternative)
 
 ```powershell
 # 1. Deploy infrastructure (auto-updates config.yaml)

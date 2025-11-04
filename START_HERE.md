@@ -1,32 +1,96 @@
-# 📋 MLOps Project - Documentation Navigation
+# 📋 MLOps Project - Start Here
 
-## 🎯 Quick Start Path
+## 🎯 THE ONLY GUIDE YOU NEED
 
-**New to this project? Follow this order:**
+### 📖 **[docs/COMPLETE_SETUP_GUIDE.md](docs/COMPLETE_SETUP_GUIDE.md)** ⭐
 
-1. **README.md** (30 min) → Understand the project architecture and goals
-2. **END_TO_END_SETUP_GUIDE.md** (4-6 hours) → Complete setup from AWS account to deployed model
-3. **QUICKSTART.md** (2 days) → Hands-on 2-day learning path
-4. **PROJECT_SUMMARY.md** (15 min) → Review what you've built
+**This is your complete end-to-end guide.**
+
+Everything you need in ONE place:
+- ✅ 100% complete setup (zero missing steps)
+- ✅ Manual steps clearly marked 🔴
+- ✅ Automated steps clearly marked 🟢
+- ✅ GitHub Actions automation (recommended)
+- ✅ PowerShell scripts explained (local alternative)
+- ✅ Troubleshooting for all common issues
+- ✅ Production deployment with approval gates
+
+**Time:** 2-3 hours (one-time setup)  
+**Result:** Fully automated MLOps infrastructure
+
+---
+
+## 🚀 Quick Start (3 Steps)
+
+1. **Read the guide:** [docs/COMPLETE_SETUP_GUIDE.md](docs/COMPLETE_SETUP_GUIDE.md)
+
+2. **Complete manual setup (1 hour):**
+   - Create AWS account + OIDC
+   - Configure GitHub secrets
+   - Update terraform.tfvars
+
+3. **Push to deploy (automated!):**
+   ```powershell
+   git push origin develop
+   # Watch GitHub Actions deploy everything! ✅
+   ```
+
+**That's it! Infrastructure deployed, model trained, endpoint live.**
+
+---
+
+## 📖 Additional Documentation (Optional Reference)
+
+After completing setup, these docs provide additional context:
+
+| Document | Purpose | When to Read |
+|----------|---------|--------------|
+| [README.md](README.md) | Project architecture overview | After setup |
+| [QUICKSTART.md](QUICKSTART.md) | 2-day hands-on learning path | For practice |
+| [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | What you built | After completion |
+| [MODEL_APPROVAL_GUIDE.md](MODEL_APPROVAL_GUIDE.md) | Model governance | Advanced topic |
+| [ENVIRONMENT_STRATEGY.md](ENVIRONMENT_STRATEGY.md) | Multi-environment setup | Scaling up |
+
+**All optional - main guide has everything you need!**
 
 ---
 
 ## 📖 Documentation Files
 
-### 🚀 **END_TO_END_SETUP_GUIDE.md** - Complete Setup Guide ⭐ START HERE
+### 🚀 **CICD_DEPLOYMENT_GUIDE.md** - Automated CI/CD Deployment ⭐ **START HERE**
+**What it covers:**
+- AWS OIDC setup for secure authentication
+- GitHub Actions workflow configuration
+- Automated infrastructure deployment via Terraform
+- Automated MLOps pipeline execution
+- Multi-environment deployment (dev/staging/prod)
+- Zero manual steps, 100% automation
+- Production deployment with approval gates
+
+**When to read:** **Read this FIRST** for production-ready automated deployment
+
+**Time required:** 2-3 hours (one-time setup)
+
+**Deployment method:** GitHub Actions CI/CD (Recommended for all projects)
+
+---
+
+### 📘 **END_TO_END_SETUP_GUIDE.md** - Local/Manual Setup (Alternative)
 **What it covers:**
 - AWS account creation and security setup
 - Local development environment
-- Infrastructure deployment with Terraform
+- Manual infrastructure deployment with Terraform
 - Python project configuration
 - First pipeline execution
 - Monitoring and validation
 - Production deployment
 - Troubleshooting and cost management
 
-**When to read:** **Read this FIRST** if you're setting up from scratch
+**When to read:** Use this for learning Terraform hands-on or local development
 
 **Time required:** 4-6 hours (includes hands-on setup)
+
+**Deployment method:** Local Terraform CLI (Alternative approach)
 
 ---
 
@@ -101,27 +165,35 @@
 
 ## 🎯 Recommended Reading Order
 
-### For Complete Beginners
+### For Complete Beginners (CI/CD Approach - Recommended)
 ```
 1. START_HERE.md (this file) ← You are here
-2. END_TO_END_SETUP_GUIDE.md (complete setup: 4-6 hours)
+2. CICD_DEPLOYMENT_GUIDE.md (automated setup: 2-3 hours) ⭐
 3. README.md (architecture: 30 min)
 4. QUICKSTART.md (hands-on: 2 days)
 5. PROJECT_SUMMARY.md (review: 15 min)
 ```
 
-### For Experienced Users
+### For Complete Beginners (Local Approach - Alternative)
+```
+1. START_HERE.md (this file) ← You are here
+2. END_TO_END_SETUP_GUIDE.md (manual setup: 4-6 hours)
+3. README.md (architecture: 30 min)
+4. QUICKSTART.md (hands-on: 2 days)
+5. PROJECT_SUMMARY.md (review: 15 min)
+```
+
+### For Experienced Users (Fast Track)
 ```
 1. README.md → Architecture overview
-2. infrastructure/SECURITY_AUDIT_REPORT.md → Security review
-3. END_TO_END_SETUP_GUIDE.md → Fast setup
-4. QUICKSTART.md → Run pipelines
+2. CICD_DEPLOYMENT_GUIDE.md → GitHub Actions deployment (1 hour)
+3. QUICKSTART.md → Run pipelines
 ```
 
 ### For Production Deployment
 ```
-1. infrastructure/SECURITY_AUDIT_REPORT.md → Review security score
-2. infrastructure/docs/DEPLOYMENT_GUIDE.md → Deploy to production
+1. CICD_DEPLOYMENT_GUIDE.md → CI/CD setup with approval gates ⭐
+2. infrastructure/SECURITY_AUDIT_REPORT.md → Review security score
 3. ENVIRONMENT_STRATEGY.md → Multi-environment setup
 4. MODEL_APPROVAL_GUIDE.md → Approval workflow
 ```

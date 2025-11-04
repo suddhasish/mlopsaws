@@ -185,31 +185,70 @@ mlops-aws-sagemaker/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### 📖 **THE ONLY GUIDE YOU NEED**
 
-1. **AWS Account** with appropriate permissions:
-   - SageMaker Full Access
-   - S3 Access
-   - IAM Role Creation
-   - CloudWatch Access
+**👉 [docs/COMPLETE_SETUP_GUIDE.md](docs/COMPLETE_SETUP_GUIDE.md) ⭐**
 
-2. **Local Environment:**
-   - Python 3.8+
-   - AWS CLI configured
-   - Git
+This single comprehensive guide contains **everything** you need:
 
-3. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+✅ **100% Complete** - No missing steps  
+✅ **Clear Labels** - Manual 🔴 vs Automated 🟢 steps  
+✅ **GitHub Actions** - Fully automated CI/CD  
+✅ **PowerShell Scripts** - Local alternative explained  
+✅ **Troubleshooting** - Common issues solved  
+✅ **Production Ready** - Deploy to prod with approval gates  
 
-4. **AWS Configuration:**
-   ```bash
-   aws configure
-   # Enter your AWS Access Key ID
-   # Enter your AWS Secret Access Key
-   # Enter your preferred region (e.g., us-east-1)
-   ```
+**Time:** 2-3 hours (one-time setup)  
+**Result:** Automated MLOps infrastructure on AWS
+
+---
+
+### Quick Overview (Read Full Guide for Details)
+
+**Step 1: Manual Setup (1 hour)**
+- Create AWS account + OIDC provider
+- Configure GitHub repository + secrets
+- Update configuration files
+
+**Step 2: Automated Deployment (40 minutes)**
+- Push to GitHub → GitHub Actions deploys infrastructure
+- Automated MLOps pipeline trains and deploys model
+- Monitoring and alerts configured automatically
+
+**Step 3: Production (Manual approval)**
+- Review deployment plan
+- Approve production deployment
+- Production endpoint live!
+
+---
+
+### Prerequisites Summary
+
+**Before starting, you need:**
+
+1. **AWS Account** (free tier available, but SageMaker costs ~$30-50/month)
+2. **GitHub Account** (free)
+3. **Local Tools** (Git, Python 3.8+, text editor)
+
+**Everything else is automated!**
+
+---
+
+### What Gets Automated
+
+After initial setup, GitHub Actions automatically:
+
+- ✅ Validates all code changes
+- ✅ Deploys infrastructure (Terraform)
+- ✅ Uploads data to S3
+- ✅ Trains ML models
+- ✅ Evaluates model performance
+- ✅ Deploys to endpoints
+- ✅ Configures monitoring
+- ✅ Sends alerts
+- ✅ Generates cost estimates
+
+**You just push code and watch it deploy! 🚀**
 
 ---
 
