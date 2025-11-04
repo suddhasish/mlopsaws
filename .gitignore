@@ -80,3 +80,7 @@ htmlcov/
 # Config (with secrets)
 config/local_config.yaml
 config/*_secrets.yaml
+
+# Terraform EXE
+*.zip
+*.exe

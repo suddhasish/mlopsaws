@@ -455,18 +455,47 @@ aws iam create-role `
 # Attach SageMaker permissions
 aws iam attach-role-policy `
   --role-name GitHubActions-MLOps-Dev `
-  --policy-arn arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+  --policy-arn arn:aws:iam::aws:policy/AmazonSageMakerFullAccess `
+  --profile mlops-dev
 
 # Attach S3 permissions
 aws iam attach-role-policy `
   --role-name GitHubActions-MLOps-Dev `
-  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess `
+  --profile mlops-dev
 
 # Attach IAM permissions (to create SageMaker roles)
 aws iam attach-role-policy `
   --role-name GitHubActions-MLOps-Dev `
-  --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
+  --policy-arn arn:aws:iam::aws:policy/IAMFullAccess `
+  --profile mlops-dev
+
+# Attach EC2 permissions (for VPC, subnets, security groups)
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess `
+  --profile mlops-dev
+
+# Attach CloudWatch permissions (for logs and alarms)
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/CloudWatchFullAccess `
+  --profile mlops-dev
+
+# Attach CloudTrail permissions (for audit logging)
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess `
+  --profile mlops-dev
 ```
+
+**Why these permissions?**
+- **SageMaker** - Create and manage ML models, training jobs, endpoints
+- **S3** - Store data, models, and artifacts
+- **IAM** - Create SageMaker execution roles
+- **EC2** - Manage VPC, subnets, security groups, availability zones
+- **CloudWatch** - Create log groups and alarms for monitoring
+- **CloudTrail** - Enable audit logging for compliance
 
 ### Step 2.4: Get and Save the Role ARN
 
@@ -485,9 +514,19 @@ aws iam get-role --role-name GitHubActions-MLOps-Dev --query 'Role.Arn' --output
 **Verify everything is configured:**
 ```powershell
 # Check role exists
-aws iam get-role --role-name GitHubActions-MLOps-Dev
+aws iam get-role --role-name GitHubActions-MLOps-Dev --profile mlops-dev
 
-# Check attached policies
+# Check attached policies (should show 6 policies)
+aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profile mlops-dev
+```
+
+**Expected output - 6 policies:**
+1. AmazonSageMakerFullAccess
+2. AmazonS3FullAccess
+3. IAMFullAccess
+4. AmazonEC2FullAccess
+5. CloudWatchFullAccess
+6. AWSCloudTrail_FullAccess
 aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev
 ```
 

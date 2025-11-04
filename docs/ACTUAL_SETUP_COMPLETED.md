@@ -64,6 +64,17 @@ Created: 2025-11-04T08:39:17+00:00
 - ✅ AmazonSageMakerFullAccess
 - ✅ AmazonS3FullAccess
 - ✅ IAMFullAccess
+- ✅ AmazonEC2FullAccess
+- ✅ CloudWatchFullAccess
+- ✅ AWSCloudTrail_FullAccess
+
+**Why these policies?**
+- **SageMaker** - Create and manage ML models, training jobs, endpoints
+- **S3** - Store data, models, and artifacts
+- **IAM** - Create SageMaker execution roles
+- **EC2** - Manage VPC, subnets, security groups, availability zones
+- **CloudWatch** - Create log groups and alarms for monitoring
+- **CloudTrail** - Enable audit logging for compliance
 
 **Verification:**
 ```powershell
@@ -246,7 +257,15 @@ Your setup is complete when:
 **Current Status:**
 - ✅ OIDC provider - DONE
 - ✅ IAM role - DONE
-- ✅ Policies - DONE
-- ⏸️ GitHub secrets - PENDING (manual step)
-- ⏸️ terraform.tfvars - PENDING (manual step)
-- ⏸️ Push to GitHub - PENDING (after above steps)
+- ✅ Trust policy - DONE (repository-based matching)
+- ✅ Policies attached (6 total) - DONE
+- ✅ GitHub secrets - DONE (AWS_ROLE_ARN, AWS_REGION)
+- ✅ Terraform variables - DONE (dev/terraform.tfvars updated)
+- ✅ GitHub Actions workflow - DONE (updated to OIDC)
+- ✅ requirements.txt - FIXED (removed non-existent package)
+- ✅ Terraform formatting - FIXED (fmt compliance)
+- ✅ Artifact actions - UPDATED (v3 → v4)
+- ✅ Terraform structure - VALIDATED (correct multi-env layout)
+- ✅ Networking module - FIXED (additional_tags → tags)
+- ✅ Code pushed to GitHub - DONE (commit: 29d266d)
+- ⏸️ Infrastructure deployment - IN PROGRESS (GitHub Actions running)
