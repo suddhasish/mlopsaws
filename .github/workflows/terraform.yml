@@ -59,11 +59,11 @@ jobs:
       
       - name: Terraform Init
         run: terraform init -backend=false
-        working-directory: infrastructure/terraform/environments/dev
+        working-directory: infrastructure/terraform
       
       - name: Terraform Validate
         run: terraform validate
-        working-directory: infrastructure/terraform/environments/dev
+        working-directory: infrastructure/terraform
 
   # ============================================================================
   # SECURITY SCAN
@@ -111,17 +111,17 @@ jobs:
       
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/environments/dev
+        working-directory: infrastructure/terraform
       
       - name: Terraform Plan
-        run: terraform plan -var-file="terraform.tfvars" -out=tfplan
-        working-directory: infrastructure/terraform/environments/dev
+        run: terraform plan -var-file="environments/dev/terraform.tfvars" -out=tfplan-dev
+        working-directory: infrastructure/terraform
       
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-dev
-          path: infrastructure/terraform/environments/dev/tfplan
+          path: infrastructure/terraform/tfplan-dev
 
   # ============================================================================
   # TERRAFORM APPLY (DEV)
@@ -153,28 +153,28 @@ jobs:
       
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/environments/dev
+        working-directory: infrastructure/terraform
       
       - name: Download Plan
         uses: actions/download-artifact@v4
         with:
           name: tfplan-dev
-          path: infrastructure/terraform/environments/dev
+          path: infrastructure/terraform
       
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure/terraform/environments/dev
+        run: terraform apply -auto-approve tfplan-dev
+        working-directory: infrastructure/terraform
       
       - name: Terraform Output
         id: terraform-output
-        run: terraform output -json > outputs.json
-        working-directory: infrastructure/terraform/environments/dev
+        run: terraform output -json > outputs-dev.json
+        working-directory: infrastructure/terraform
       
       - name: Upload Outputs
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-dev
-          path: infrastructure/terraform/environments/dev/outputs.json
+          path: infrastructure/terraform/outputs-dev.json
 
   # ============================================================================
   # TERRAFORM PLAN (STAGING)
@@ -203,17 +203,17 @@ jobs:
       
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/environments/staging
+        working-directory: infrastructure/terraform
       
       - name: Terraform Plan
-        run: terraform plan -var-file="terraform.tfvars" -out=tfplan
-        working-directory: infrastructure/terraform/environments/staging
+        run: terraform plan -var-file="environments/staging/terraform.tfvars" -out=tfplan-staging
+        working-directory: infrastructure/terraform
       
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-staging
-          path: infrastructure/terraform/environments/staging/tfplan
+          path: infrastructure/terraform/tfplan-staging
 
   # ============================================================================
   # TERRAFORM APPLY (STAGING) - Requires Manual Approval
@@ -244,27 +244,27 @@ jobs:
       
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/environments/staging
+        working-directory: infrastructure/terraform
       
       - name: Download Plan
         uses: actions/download-artifact@v4
         with:
           name: tfplan-staging
-          path: infrastructure/terraform/environments/staging
+          path: infrastructure/terraform
       
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure/terraform/environments/staging
+        run: terraform apply -auto-approve tfplan-staging
+        working-directory: infrastructure/terraform
       
       - name: Terraform Output
-        run: terraform output -json > outputs.json
-        working-directory: infrastructure/terraform/environments/staging
+        run: terraform output -json > outputs-staging.json
+        working-directory: infrastructure/terraform
       
       - name: Upload Outputs
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-staging
-          path: infrastructure/terraform/environments/staging/outputs.json
+          path: infrastructure/terraform/outputs-staging.json
 
   # ============================================================================
   # TERRAFORM PLAN (PRODUCTION)
@@ -293,17 +293,17 @@ jobs:
       
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/environments/production
+        working-directory: infrastructure/terraform
       
       - name: Terraform Plan
-        run: terraform plan -var-file="terraform.tfvars" -out=tfplan
-        working-directory: infrastructure/terraform/environments/production
+        run: terraform plan -var-file="environments/production/terraform.tfvars" -out=tfplan-production
+        working-directory: infrastructure/terraform
       
       - name: Upload Plan
         uses: actions/upload-artifact@v4
         with:
           name: tfplan-production
-          path: infrastructure/terraform/environments/production/tfplan
+          path: infrastructure/terraform/tfplan-production
       
       - name: Comment Plan on PR
         if: github.event_name == 'pull_request'
@@ -348,27 +348,27 @@ jobs:
       
       - name: Terraform Init
         run: terraform init
-        working-directory: infrastructure/terraform/environments/production
+        working-directory: infrastructure/terraform
       
       - name: Download Plan
         uses: actions/download-artifact@v4
         with:
           name: tfplan-production
-          path: infrastructure/terraform/environments/production
+          path: infrastructure/terraform
       
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure/terraform/environments/production
+        run: terraform apply -auto-approve tfplan-production
+        working-directory: infrastructure/terraform
       
       - name: Terraform Output
-        run: terraform output -json > outputs.json
-        working-directory: infrastructure/terraform/environments/production
+        run: terraform output -json > outputs-production.json
+        working-directory: infrastructure/terraform
       
       - name: Upload Outputs
         uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-production
-          path: infrastructure/terraform/environments/production/outputs.json
+          path: infrastructure/terraform/outputs-production.json
       
       - name: Notify Slack
         if: always()
