@@ -77,7 +77,7 @@ module "networking" {
   vpc_cidr                 = var.vpc_cidr
   availability_zones_count = var.availability_zones_count
   enable_vpc_endpoints     = var.enable_vpc_endpoints
-  tags                     = merge(
+  tags = merge(
     {
       Project     = var.project_name
       Environment = var.environment
