@@ -922,6 +922,6 @@ training_instance_type = "ml.m5.large"  # Instead of ml.m5.xlarge
 
 ---
 
-**Last Updated:** 2024
-**Version:** 1.0.0
+**Last Updated:** 2025
+**Version:** 1.0.1
 **Maintainer:** MLOps Team
