@@ -118,7 +118,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/dev
       
       - name: Upload Plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tfplan-dev
           path: infrastructure/terraform/environments/dev/tfplan
@@ -156,7 +156,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/dev
       
       - name: Download Plan
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tfplan-dev
           path: infrastructure/terraform/environments/dev
@@ -171,7 +171,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/dev
       
       - name: Upload Outputs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-dev
           path: infrastructure/terraform/environments/dev/outputs.json
@@ -210,7 +210,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/staging
       
       - name: Upload Plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tfplan-staging
           path: infrastructure/terraform/environments/staging/tfplan
@@ -247,7 +247,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/staging
       
       - name: Download Plan
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tfplan-staging
           path: infrastructure/terraform/environments/staging
@@ -261,7 +261,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/staging
       
       - name: Upload Outputs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-staging
           path: infrastructure/terraform/environments/staging/outputs.json
@@ -300,7 +300,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/production
       
       - name: Upload Plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tfplan-production
           path: infrastructure/terraform/environments/production/tfplan
@@ -351,7 +351,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/production
       
       - name: Download Plan
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tfplan-production
           path: infrastructure/terraform/environments/production
@@ -365,7 +365,7 @@ jobs:
         working-directory: infrastructure/terraform/environments/production
       
       - name: Upload Outputs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-outputs-production
           path: infrastructure/terraform/environments/production/outputs.json
