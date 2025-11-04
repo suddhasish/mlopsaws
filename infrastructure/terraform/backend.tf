@@ -9,7 +9,7 @@ terraform {
     region         = "us-east-1"
     encrypt        = true
     dynamodb_table = "mlops-terraform-locks"
-    
+
     # Uncomment if using specific AWS profile locally
     # profile = "mlops-dev"
   }
