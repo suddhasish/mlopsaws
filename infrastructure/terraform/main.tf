@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -14,7 +14,7 @@ terraform {
       version = "~> 3.5"
     }
   }
-  
+
   # Backend configuration - UNCOMMENT after creating S3 bucket manually
   # backend "s3" {
   #   bucket         = "mlops-terraform-state-ACCOUNT_ID"  # Replace with your bucket name
@@ -31,7 +31,7 @@ terraform {
 
 provider "aws" {
   region = var.region
-  
+
   # Default tags applied to all resources
   default_tags {
     tags = {

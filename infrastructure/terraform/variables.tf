@@ -170,7 +170,7 @@ variable "enable_model_monitor" {
 variable "model_monitor_schedule_expression" {
   description = "Cron expression for model monitoring schedule"
   type        = string
-  default     = "cron(0 * * * ? *)"  # Hourly
+  default     = "cron(0 * * * ? *)" # Hourly
 }
 
 variable "cloudwatch_log_retention_days" {
@@ -187,7 +187,7 @@ variable "enable_cloudtrail" {
 variable "enable_config" {
   description = "Enable AWS Config for compliance monitoring"
   type        = bool
-  default     = false  # Can be expensive
+  default     = false # Can be expensive
 }
 
 # =============================================================================
@@ -254,7 +254,7 @@ variable "kms_key_deletion_window" {
 variable "enable_guardduty" {
   description = "Enable GuardDuty for threat detection"
   type        = bool
-  default     = false  # Additional cost
+  default     = false # Additional cost
 }
 
 # =============================================================================

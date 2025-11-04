@@ -151,13 +151,13 @@ output "config_yaml" {
       prefix      = "${var.project_name}-${var.environment}"
     }
     sagemaker = {
-      role                   = module.iam.sagemaker_execution_role_arn
-      processing_instance    = var.sagemaker_processing_instance_type
-      training_instance      = var.sagemaker_training_instance_type
-      endpoint_instance      = var.sagemaker_endpoint_instance_type
-      model_package_group    = module.sagemaker.model_package_group_name
-      use_spot_instances     = var.enable_sagemaker_spot_instances
-      vpc_config             = var.enable_vpc ? {
+      role                = module.iam.sagemaker_execution_role_arn
+      processing_instance = var.sagemaker_processing_instance_type
+      training_instance   = var.sagemaker_training_instance_type
+      endpoint_instance   = var.sagemaker_endpoint_instance_type
+      model_package_group = module.sagemaker.model_package_group_name
+      use_spot_instances  = var.enable_sagemaker_spot_instances
+      vpc_config = var.enable_vpc ? {
         subnets         = module.networking[0].private_subnet_ids
         security_groups = [module.networking[0].sagemaker_security_group_id]
       } : null
@@ -179,7 +179,7 @@ output "config_yaml" {
 
 output "quick_reference" {
   description = "Quick reference for common commands"
-  value = <<-EOT
+  value       = <<-EOT
   
   ╔═══════════════════════════════════════════════════════════════════════════╗
   ║                    🚀 MLOps Infrastructure Deployed                        ║
@@ -223,7 +223,7 @@ output "terraform_state_info" {
   description = "Information about Terraform state management"
   value = {
     workspace = terraform.workspace
-    backend   = "s3"  # Remind users to configure backend
+    backend   = "s3" # Remind users to configure backend
     message   = "Remember to configure S3 backend for team collaboration"
   }
 }

@@ -6,7 +6,7 @@
 # SageMaker Execution Role
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "sagemaker_execution" {
-  name               = "${var.project_name}-sagemaker-execution-${var.environment}"
+  name = "${var.project_name}-sagemaker-execution-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -133,7 +133,7 @@ resource "aws_iam_role_policy" "sagemaker_kms_access" {
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "data_scientist" {
   name = "${var.project_name}-data-scientist-${var.environment}"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -179,8 +179,8 @@ resource "aws_iam_role_policy" "data_scientist_pass_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = "iam:PassRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = aws_iam_role.sagemaker_execution.arn
         Condition = {
           StringEquals = {
