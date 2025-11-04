@@ -67,6 +67,8 @@ Created: 2025-11-04T08:39:17+00:00
 - ✅ AmazonEC2FullAccess
 - ✅ CloudWatchFullAccess
 - ✅ AWSCloudTrail_FullAccess
+- ✅ AmazonEventBridgeFullAccess - Added Nov 4, 2025
+- ✅ AWSLambda_FullAccess - Added Nov 4, 2025
 
 **Why these policies?**
 - **SageMaker** - Create and manage ML models, training jobs, endpoints
@@ -75,6 +77,8 @@ Created: 2025-11-04T08:39:17+00:00
 - **EC2** - Manage VPC, subnets, security groups, availability zones
 - **CloudWatch** - Create log groups and alarms for monitoring
 - **CloudTrail** - Enable audit logging for compliance
+- **EventBridge** - Scheduled rules for auto-shutdown and monitoring
+- **Lambda** - Auto-shutdown functions and event handlers
 
 **Verification:**
 ```powershell

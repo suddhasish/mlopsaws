@@ -60,12 +60,13 @@ The error is because budget creation requires special handling. We'll keep budge
 
 2. **Find the quota:**
    - Search for: "Model package groups"
-   - Full name: "Model package groups per account"
+   - Full name: "Maximum number of SageMaker Model Package Groups allowed per account"
+   - Quota Code: **L-BC8DC54C**
    - Current value: 0
    - Default value: Usually 100
 
 3. **Request increase:**
-   - Click on "Model package groups per account"
+   - Click on "Maximum number of SageMaker Model Package Groups allowed per account"
    - Click "Request quota increase"
    - Enter desired value: **10** (or higher if you plan many models)
    - Click "Request"
@@ -74,6 +75,15 @@ The error is because budget creation requires special handling. We'll keep budge
    - Usually approved in: 15 minutes to 48 hours
    - You'll receive email notification
    - Check status: Service Quotas → Dashboard → Quota request history
+
+**Alternative - AWS CLI (if Console doesn't work):**
+```powershell
+aws service-quotas request-service-quota-increase `
+    --service-code sagemaker `
+    --quota-code L-BC8DC54C `
+    --desired-value 10 `
+    --profile mlops-dev
+```
 
 **Alternative - AWS Support Ticket:**
 If Service Quotas doesn't work, create a support case:
@@ -119,9 +129,9 @@ aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profil
 
 ---
 
-## Expected IAM Policies After Fix
+## Current Status: All IAM Policies Attached ✅
 
-The role should have 8 managed policies:
+The role **GitHubActions-MLOps-Dev** now has all 8 required managed policies:
 
 1. ✅ AmazonSageMakerFullAccess
 2. ✅ AmazonS3FullAccess
@@ -129,17 +139,40 @@ The role should have 8 managed policies:
 4. ✅ AmazonEC2FullAccess
 5. ✅ CloudWatchFullAccess
 6. ✅ AWSCloudTrail_FullAccess
-7. ✅ AmazonEventBridgeFullAccess ← NEW
-8. ✅ AWSLambda_FullAccess ← NEW
+7. ✅ AmazonEventBridgeFullAccess - **Added Nov 4, 2025**
+8. ✅ AWSLambda_FullAccess - **Added Nov 4, 2025**
 
 ---
 
-## After Applying Fixes
+## Current Deployment Status
 
-1. Commit the terraform.tfvars change (auto_shutdown disabled)
-2. Push to GitHub
-3. Wait for quota increase approval (24-48 hours)
-4. Re-run GitHub Actions workflow
+### ✅ Resolved Issues
+
+1. **Auto-Shutdown Disabled** - Lambda ZIP files missing, feature disabled in dev environment
+2. **EventBridge Permissions** - AmazonEventBridgeFullAccess policy attached Nov 4, 2025
+3. **Lambda Permissions** - AWSLambda_FullAccess policy attached Nov 4, 2025
+4. **IAM Configuration Complete** - All 8 required policies now attached
+
+### ⏳ Pending
+
+1. **SageMaker Quota Request** - Model Package Groups quota increase submitted
+   - Request ID: `3d8c1063060c49d69c68694f8155a1aeXRl7MRZT`
+   - Status: PENDING
+   - Current value: 0
+   - Requested value: 250
+   - Submitted: November 4, 2025 at 18:54 IST
+   - Expected approval: 24-48 hours
+
+### 📋 Next Steps
+
+1. Monitor quota request status:
+   ```powershell
+   aws service-quotas get-requested-service-quota-change --request-id 3d8c1063060c49d69c68694f8155a1aeXRl7MRZT --profile mlops-dev
+   ```
+
+2. After quota approval, re-run Terraform deployment
+
+3. (Optional) Create Lambda ZIP files and enable auto-shutdown for cost savings
 
 ---
 
