@@ -24,16 +24,19 @@ Last Updated: November 4, 2025
 9. [EC2 Permission Denied](#9-ec2-permission-denied)
 10. [EventBridge Permission Denied](#10-eventbridge-permission-denied)
 11. [Lambda Permission Denied](#11-lambda-permission-denied)
+12. [Budgets Permission Denied](#12-budgets-permission-denied)
+13. [DynamoDB Permission Denied](#13-dynamodb-permission-denied)
 
 **Deployment Issues:**
-12. [Lambda ZIP Files Missing](#12-lambda-zip-files-missing)
-13. [SageMaker Quota Exceeded](#13-sagemaker-quota-exceeded)
-14. [GitHub Actions Artifact Deprecation](#14-github-actions-artifact-deprecation)
+14. [Lambda ZIP Files Missing](#14-lambda-zip-files-missing)
+15. [SageMaker Quota Exceeded](#15-sagemaker-quota-exceeded)
+16. [GitHub Actions Artifact Deprecation](#16-github-actions-artifact-deprecation)
+17. [Resource Already Exists](#17-resource-already-exists)
 
 **Runtime Issues:**
-15. [Endpoint Deployment Timeout](#15-endpoint-deployment-timeout)
-16. [Training Job Failed](#16-training-job-failed)
-17. [High AWS Costs](#17-high-aws-costs)
+18. [Endpoint Deployment Timeout](#18-endpoint-deployment-timeout)
+19. [Training Job Failed](#19-training-job-failed)
+20. [High AWS Costs](#20-high-aws-costs)
 
 ---
 
@@ -469,9 +472,79 @@ aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profil
 
 ---
 
+### 12. Budgets Permission Denied
+
+**Error:**
+```
+Error: UnauthorizedOperation: User: arn:aws:sts::891807086260:assumed-role/GitHubActions-MLOps-Dev/GitHubActions-Terraform-Dev
+is not authorized to perform: budgets:ModifyBudget
+```
+
+**Root Cause:** IAM role lacks AWS Budgets permissions.
+
+**Solution:**
+```powershell
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AWSBudgetsActionsWithAWSResourceControlAccess `
+  --profile mlops-dev
+```
+
+**Verify:**
+```powershell
+aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profile mlops-dev
+# Should show AWSBudgetsActionsWithAWSResourceControlAccess
+```
+
+**What This Policy Provides:**
+- `budgets:ModifyBudget` - Create and update budgets
+- `budgets:ViewBudget` - Read budget configurations
+- `budgets:DeleteBudget` - Remove budgets
+- `budgets:*Action*` - Manage budget actions (alerts, SNS)
+
+---
+
+### 13. DynamoDB Permission Denied
+
+**Error:**
+```
+Error: AccessDeniedException: User: arn:aws:sts::891807086260:assumed-role/GitHubActions-MLOps-Dev/GitHubActions-Terraform-Dev
+is not authorized to perform: dynamodb:PutItem on resource: arn:aws:dynamodb:***:891807086260:table/mlops-terraform-locks
+is not authorized to perform: dynamodb:GetItem on resource: arn:aws:dynamodb:***:891807086260:table/mlops-terraform-locks
+```
+
+**Root Cause:** IAM role lacks DynamoDB permissions for Terraform state locking.
+
+**Solution:**
+```powershell
+aws iam attach-role-policy `
+  --role-name GitHubActions-MLOps-Dev `
+  --policy-arn arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess `
+  --profile mlops-dev
+```
+
+**Verify:**
+```powershell
+aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profile mlops-dev
+# Should show AmazonDynamoDBFullAccess
+```
+
+**What This Policy Provides:**
+- `dynamodb:PutItem` - Acquire state lock
+- `dynamodb:GetItem` - Check lock status
+- `dynamodb:DeleteItem` - Release state lock
+- Required for Terraform remote backend with S3 + DynamoDB
+
+**Why DynamoDB Locking?**
+- Prevents concurrent Terraform runs from corrupting state
+- Essential for GitHub Actions (multiple workflows can run simultaneously)
+- Low cost: ~$0.01/month for state locking operations
+
+---
+
 ## Deployment Issues
 
-### 12. Lambda ZIP Files Missing
+### 14. Lambda ZIP Files Missing
 
 **Error:**
 ```
@@ -497,7 +570,7 @@ See `infrastructure/DEPLOYMENT_ISSUES_AND_FIXES.md` for Lambda function creation
 
 ---
 
-### 13. SageMaker Quota Exceeded
+### 15. SageMaker Quota Exceeded
 
 **Error:**
 ```
@@ -554,7 +627,7 @@ aws service-quotas get-requested-service-quota-change `
 
 ---
 
-### 14. GitHub Actions Artifact Deprecation
+### 16. GitHub Actions Artifact Deprecation
 
 **Error:**
 ```
@@ -586,9 +659,89 @@ Select-String -Path ".github/workflows/terraform.yml" -Pattern "artifact@v3"
 
 ---
 
+### 17. Resource Already Exists
+
+**Error:**
+```
+Error: S3BucketAlreadyOwnedByYou: Your previous request to create the named bucket succeeded
+Error: EntityAlreadyExists: Role with name mlops-diabetes-sagemaker-execution-dev already exists
+Error: ResourceAlreadyExistsException: Log group /aws/sagemaker/TrainingJobs already exists
+Error: Budget already exists
+```
+
+**Root Cause:** Resources were created by GitHub Actions, but Terraform state was lost (ephemeral runners).
+
+**Solution 1: Configure Remote Backend (Recommended)**
+
+This prevents state loss in the future:
+
+```powershell
+# Run the backend setup script
+.\infrastructure\scripts\setup-terraform-backend.ps1
+
+# This creates:
+# - S3 bucket: mlops-terraform-state-891807086260
+# - DynamoDB table: mlops-terraform-locks
+# - backend.tf configuration
+```
+
+**Solution 2: Import Existing Resources**
+
+Add existing resources to Terraform state:
+
+```powershell
+cd infrastructure/terraform
+
+# Import S3 bucket
+terraform import -var-file="environments/dev/terraform.tfvars" `
+  module.s3.aws_s3_bucket.ml_data `
+  mlops-diabetes-dev-891807086260
+
+# Import IAM roles
+terraform import -var-file="environments/dev/terraform.tfvars" `
+  module.iam.aws_iam_role.sagemaker_execution `
+  mlops-diabetes-sagemaker-execution-dev
+
+terraform import -var-file="environments/dev/terraform.tfvars" `
+  module.iam.aws_iam_role.data_scientist `
+  mlops-diabetes-data-scientist-dev
+
+# Import CloudWatch log groups
+terraform import -var-file="environments/dev/terraform.tfvars" `
+  module.monitoring.aws_cloudwatch_log_group.training_jobs `
+  /aws/sagemaker/TrainingJobs
+
+terraform import -var-file="environments/dev/terraform.tfvars" `
+  module.monitoring.aws_cloudwatch_log_group.endpoints `
+  /aws/sagemaker/Endpoints/mlops-diabetes-dev
+
+# Import Budget
+terraform import -var-file="environments/dev/terraform.tfvars" `
+  module.budgets.aws_budgets_budget.monthly `
+  mlops-diabetes-dev-budget
+```
+
+**Solution 3: Delete and Recreate (Last Resort)**
+
+⚠️ **WARNING:** This deletes production resources. Only use in development.
+
+```powershell
+# Delete existing resources manually
+aws s3 rb s3://mlops-diabetes-dev-891807086260 --force --profile mlops-dev
+aws iam delete-role --role-name mlops-diabetes-sagemaker-execution-dev --profile mlops-dev
+# ... etc
+```
+
+**Prevent Future Issues:**
+- ✅ Use remote backend (S3 + DynamoDB)
+- ✅ Never run `terraform destroy` without backup
+- ✅ Import resources before re-applying
+
+---
+
 ## Runtime Issues
 
-### 15. Endpoint Deployment Timeout
+### 18. Endpoint Deployment Timeout
 
 **Error:**
 ```
@@ -625,7 +778,7 @@ aws sagemaker delete-endpoint --endpoint-name mlops-diabetes-endpoint-dev --prof
 
 ---
 
-### 16. Training Job Failed
+### 19. Training Job Failed
 
 **Error:**
 ```
@@ -657,7 +810,7 @@ aws s3 cp data/raw/diabetes.csv s3://mlops-diabetes-ACCOUNT-dev/data/raw/ --prof
 
 ---
 
-### 17. High AWS Costs
+### 20. High AWS Costs
 
 **Problem:** Monthly bill higher than expected.
 

@@ -247,12 +247,12 @@ arn:aws:iam::891807086260:role/GitHubActions-MLOps-Dev
 
 ## Policy Attachment
 
-### Required Policies (All 8)
+### Required Policies (All 10)
 
-Attach all 8 AWS managed policies to the role:
+Attach all 10 AWS managed policies to the role:
 
 ```powershell
-# Define all required policies
+# 3. Attach all 10 required policies
 $policies = @(
     "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
     "arn:aws:iam::aws:policy/AmazonS3FullAccess",
@@ -261,7 +261,9 @@ $policies = @(
     "arn:aws:iam::aws:policy/CloudWatchFullAccess",
     "arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess",
     "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess",
-    "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
+    "arn:aws:iam::aws:policy/AWSLambda_FullAccess",
+    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+    "arn:aws:iam::aws:policy/AWSBudgetsActionsWithAWSResourceControlAccess"
 )
 
 # Attach each policy
@@ -273,7 +275,7 @@ foreach ($policy in $policies) {
         --profile mlops-dev
 }
 
-Write-Host "✅ All 8 policies attached successfully"
+Write-Host "✅ All 10 policies attached successfully"
 ```
 
 ### Policy Purposes
@@ -288,6 +290,8 @@ Write-Host "✅ All 8 policies attached successfully"
 | **AWSCloudTrail_FullAccess** | Audit logging for compliance | `cloudtrail:*` |
 | **AmazonEventBridgeFullAccess** | Scheduled rules for auto-shutdown | `events:*` |
 | **AWSLambda_FullAccess** | Auto-shutdown Lambda functions | `lambda:*` |
+| **AmazonDynamoDBFullAccess** | Terraform state locking for concurrent runs | `dynamodb:PutItem`, `dynamodb:GetItem`, `dynamodb:DeleteItem` |
+| **AWSBudgetsActionsWithAWSResourceControlAccess** | Create and manage cost budgets | `budgets:ModifyBudget`, `budgets:ViewBudget` |
 
 ### Alternative: Custom Policy (Production)
 
@@ -332,7 +336,7 @@ aws iam get-role --role-name GitHubActions-MLOps-Dev --profile mlops-dev
 # Check trust policy
 aws iam get-role --role-name GitHubActions-MLOps-Dev --query 'Role.AssumeRolePolicyDocument' --profile mlops-dev
 
-# Check attached policies (should show 8)
+# Check attached policies (should show 10)
 aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profile mlops-dev
 ```
 
@@ -348,12 +352,14 @@ aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profil
         {"PolicyName": "CloudWatchFullAccess", "PolicyArn": "arn:aws:iam::aws:policy/CloudWatchFullAccess"},
         {"PolicyName": "AWSCloudTrail_FullAccess", "PolicyArn": "arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess"},
         {"PolicyName": "AmazonEventBridgeFullAccess", "PolicyArn": "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess"},
-        {"PolicyName": "AWSLambda_FullAccess", "PolicyArn": "arn:aws:iam::aws:policy/AWSLambda_FullAccess"}
+        {"PolicyName": "AWSLambda_FullAccess", "PolicyArn": "arn:aws:iam::aws:policy/AWSLambda_FullAccess"},
+        {"PolicyName": "AmazonDynamoDBFullAccess", "PolicyArn": "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"},
+        {"PolicyName": "AWSBudgetsActionsWithAWSResourceControlAccess", "PolicyArn": "arn:aws:iam::aws:policy/AWSBudgetsActionsWithAWSResourceControlAccess"}
     ]
 }
 ```
 
-✅ **Checkpoint:** All 8 policies attached
+✅ **Checkpoint:** All 10 policies attached
 
 ### Test OIDC Authentication
 

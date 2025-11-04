@@ -60,7 +60,7 @@ Created: 2025-11-04T08:39:17+00:00
 }
 ```
 
-**Attached Policies:**
+**Attached Policies (10 total):**
 - ✅ AmazonSageMakerFullAccess
 - ✅ AmazonS3FullAccess
 - ✅ IAMFullAccess
@@ -69,6 +69,8 @@ Created: 2025-11-04T08:39:17+00:00
 - ✅ AWSCloudTrail_FullAccess
 - ✅ AmazonEventBridgeFullAccess - Added Nov 4, 2025
 - ✅ AWSLambda_FullAccess - Added Nov 4, 2025
+- ✅ AmazonDynamoDBFullAccess - Added Nov 4, 2025 (for Terraform state locking)
+- ✅ AWSBudgetsActionsWithAWSResourceControlAccess - Added Nov 4, 2025 (for cost management)
 
 **Why these policies?**
 - **SageMaker** - Create and manage ML models, training jobs, endpoints
@@ -79,6 +81,8 @@ Created: 2025-11-04T08:39:17+00:00
 - **CloudTrail** - Enable audit logging for compliance
 - **EventBridge** - Scheduled rules for auto-shutdown and monitoring
 - **Lambda** - Auto-shutdown functions and event handlers
+- **DynamoDB** - Terraform state locking for concurrent GitHub Actions runs
+- **Budgets** - Create and manage AWS cost budgets
 
 **Verification:**
 ```powershell
@@ -115,6 +119,45 @@ Created: 2025-11-04T08:39:17+00:00
     }
   ]
 }
+```
+
+---
+
+### 4. Terraform Remote Backend
+**Status:** ✅ Created
+
+**S3 Backend Bucket:**
+```
+Name: mlops-terraform-state-891807086260
+Versioning: Enabled
+Encryption: AES256
+Public Access: Blocked
+Region: us-east-1
+```
+
+**DynamoDB State Locking Table:**
+```
+Name: mlops-terraform-locks
+Billing Mode: PAY_PER_REQUEST
+Hash Key: LockID (String)
+Status: ACTIVE
+```
+
+**Backend Configuration:** `infrastructure/terraform/backend.tf`
+
+**Why Remote Backend?**
+- **State Persistence:** GitHub Actions runners are ephemeral; local state is lost after each run
+- **State Locking:** DynamoDB prevents concurrent Terraform runs from corrupting state
+- **Collaboration:** Team members can share same state
+- **Cost:** ~$0.05/month (S3 storage + DynamoDB on-demand)
+
+**Verification:**
+```powershell
+# Check S3 bucket
+aws s3 ls s3://mlops-terraform-state-891807086260 --profile mlops-dev
+
+# Check DynamoDB table
+aws dynamodb describe-table --table-name mlops-terraform-locks --profile mlops-dev
 ```
 
 ---
@@ -262,7 +305,8 @@ Your setup is complete when:
 - ✅ OIDC provider - DONE
 - ✅ IAM role - DONE
 - ✅ Trust policy - DONE (repository-based matching)
-- ✅ Policies attached (6 total) - DONE
+- ✅ Policies attached (10 total) - DONE (added DynamoDB & Budgets Nov 4, 2025)
+- ✅ Remote backend - DONE (S3 + DynamoDB configured)
 - ✅ GitHub secrets - DONE (AWS_ROLE_ARN, AWS_REGION)
 - ✅ Terraform variables - DONE (dev/terraform.tfvars updated)
 - ✅ GitHub Actions workflow - DONE (updated to OIDC)
@@ -271,5 +315,6 @@ Your setup is complete when:
 - ✅ Artifact actions - UPDATED (v3 → v4)
 - ✅ Terraform structure - VALIDATED (correct multi-env layout)
 - ✅ Networking module - FIXED (additional_tags → tags)
-- ✅ Code pushed to GitHub - DONE (commit: 29d266d)
-- ⏸️ Infrastructure deployment - IN PROGRESS (GitHub Actions running)
+- ✅ Code pushed to GitHub - DONE
+- ⏸️ SageMaker quota - PENDING APPROVAL (Request ID: 3d8c1063060c49d69c68694f8155a1aeXRl7MRZT, submitted Nov 4, 2025 at 18:54 IST)
+- ⏸️ Infrastructure deployment - BLOCKED by SageMaker quota (current value: 0, requested: 250)

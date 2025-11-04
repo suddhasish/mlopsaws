@@ -51,17 +51,18 @@ This is the main setup guide. Specialized topics are covered in dedicated docume
 1. [Prerequisites](#1-prerequisites)
 2. [AWS OIDC & IAM Setup](#2-aws-oidc--iam-setup)
 3. [GitHub Configuration](#3-github-configuration)
-4. [Terraform Configuration](#4-terraform-configuration)
-5. [First Deployment](#5-first-deployment)
+4. [Terraform Remote Backend Setup](#4-terraform-remote-backend-setup)
+5. [Terraform Configuration](#5-terraform-configuration)
+6. [First Deployment](#6-first-deployment)
 
 **Operations:**
-6. [Monitoring & Validation](#6-monitoring--validation)
-7. [Cost Management](#7-cost-management)
-8. [Production Deployment](#8-production-deployment)
+7. [Monitoring & Validation](#7-monitoring--validation)
+8. [Cost Management](#8-cost-management)
+9. [Production Deployment](#9-production-deployment)
 
 **Reference:**
-9. [Common Issues](#9-common-issues)
-10. [Next Steps](#10-next-steps)
+10. [Common Issues](#10-common-issues)
+11. [Next Steps](#11-next-steps)
 
 ---
 
@@ -146,7 +147,7 @@ aws iam create-role `
   --description "GitHub Actions role for MLOps dev environment" `
   --profile mlops-dev
 
-# 3. Attach all 8 required policies
+# 3. Attach all 10 required policies
 $policies = @(
     "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess",
     "arn:aws:iam::aws:policy/AmazonS3FullAccess",
@@ -155,7 +156,9 @@ $policies = @(
     "arn:aws:iam::aws:policy/CloudWatchFullAccess",
     "arn:aws:iam::aws:policy/AWSCloudTrail_FullAccess",
     "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess",
-    "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
+    "arn:aws:iam::aws:policy/AWSLambda_FullAccess",
+    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+    "arn:aws:iam::aws:policy/AWSBudgetsActionsWithAWSResourceControlAccess"
 )
 foreach ($policy in $policies) {
     aws iam attach-role-policy --role-name GitHubActions-MLOps-Dev --policy-arn $policy --profile mlops-dev
@@ -165,7 +168,7 @@ foreach ($policy in $policies) {
 $roleArn = aws iam get-role --role-name GitHubActions-MLOps-Dev --query 'Role.Arn' --output text --profile mlops-dev
 Write-Host "Role ARN: $roleArn"
 
-# 5. Verify (should show 8 policies)
+# 5. Verify (should show 10 policies)
 aws iam list-attached-role-policies --role-name GitHubActions-MLOps-Dev --profile mlops-dev
 ```
 
@@ -176,7 +179,7 @@ arn:aws:iam::891807086260:role/GitHubActions-MLOps-Dev
 
 **If you encounter errors:** See [TROUBLESHOOTING.md#4-malformed-iam-policy-document](./TROUBLESHOOTING.md#4-malformed-iam-policy-document)
 
-✅ **Checkpoint:** IAM role created with 8 policies, ARN saved
+✅ **Checkpoint:** IAM role created with 10 policies, ARN saved
 
 ---
 
@@ -207,7 +210,40 @@ https://github.com/YOUR_USERNAME/mlopsaws/settings/secrets/actions
 
 ---
 
-## 4. Terraform Configuration
+## 4. Terraform Remote Backend Setup
+
+**Why Remote Backend?** GitHub Actions runs on ephemeral runners, so local state is lost after each run. Remote backend stores state in S3 with DynamoDB locking for safe concurrent runs.
+
+**Cost:** ~$0.05/month (S3 storage + DynamoDB on-demand)
+
+### Quick Setup
+
+```powershell
+# Run the backend setup script
+.\infrastructure\scripts\setup-terraform-backend.ps1
+```
+
+**This creates:**
+- S3 bucket: `mlops-terraform-state-891807086260`
+- DynamoDB table: `mlops-terraform-locks`
+- Versioning enabled on S3
+- AES256 encryption
+- Public access blocked
+
+**Verification:**
+```powershell
+# Check S3 bucket
+aws s3 ls s3://mlops-terraform-state-891807086260 --profile mlops-dev
+
+# Check DynamoDB table
+aws dynamodb describe-table --table-name mlops-terraform-locks --profile mlops-dev
+```
+
+✅ **Checkpoint:** Remote backend configured
+
+---
+
+## 5. Terraform Configuration
 
 ### Update Environment Variables
 
@@ -267,7 +303,7 @@ git commit -m "Configure dev environment with AWS account details"
 
 ---
 
-## 5. First Deployment
+## 6. First Deployment
 
 ### Push to GitHub
 
@@ -346,7 +382,7 @@ aws sagemaker list-model-package-groups --name-contains diabetes --profile mlops
 
 ---
 
-## 6. Monitoring & Validation
+## 7. Monitoring & Validation
 
 ### Test Model Endpoint
 
@@ -393,7 +429,7 @@ aws ce get-cost-and-usage `
 
 ---
 
-## 7. Cost Management
+## 8. Cost Management
 
 ### Expected Costs
 
@@ -444,7 +480,7 @@ aws sagemaker delete-endpoint --endpoint-name OLD_ENDPOINT --profile mlops-dev
 
 ---
 
-## 8. Production Deployment
+## 9. Production Deployment
 
 ### Production Considerations
 
@@ -504,7 +540,7 @@ monitoring_schedule_expression = "cron(0 * * * ? *)"  # Hourly
 
 ---
 
-## 9. Common Issues
+## 10. Common Issues
 
 **Quick fixes for common problems. Full documentation:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
@@ -596,7 +632,7 @@ aws iam attach-role-policy `
 
 ---
 
-## 10. Next Steps
+## 11. Next Steps
 
 ### ✅ You've Successfully Deployed MLOps Infrastructure!
 
