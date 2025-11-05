@@ -208,6 +208,7 @@ jobs:
           config['aws']['account_id'] = '$AWS_ACCOUNT_ID'
           config['sagemaker']['role'] = '$SAGEMAKER_ROLE'
           config['s3']['bucket_name'] = '$S3_BUCKET'
+          config['sagemaker']['training']['checkpoint_s3_uri'] = f's3://{config[\"s3\"][\"bucket_name\"]}/checkpoints'
           with open('config/config.yaml', 'w') as f:
               yaml.dump(config, f)
           "
@@ -268,6 +269,7 @@ jobs:
           config['aws']['account_id'] = '$AWS_ACCOUNT_ID'
           config['sagemaker']['role'] = '$SAGEMAKER_ROLE'
           config['s3']['bucket_name'] = '$S3_BUCKET'
+          config['sagemaker']['training']['checkpoint_s3_uri'] = f's3://{config[\"s3\"][\"bucket_name\"]}/checkpoints'
           with open('config/config.yaml', 'w') as f:
               yaml.dump(config, f)
           "
@@ -321,6 +323,7 @@ jobs:
           config['aws']['account_id'] = '$AWS_ACCOUNT_ID'
           config['sagemaker']['role'] = '$SAGEMAKER_ROLE'
           config['s3']['bucket_name'] = '$S3_BUCKET'
+          config['sagemaker']['training']['checkpoint_s3_uri'] = f's3://{config[\"s3\"][\"bucket_name\"]}/checkpoints'
           with open('config/config.yaml', 'w') as f:
               yaml.dump(config, f)
           "
