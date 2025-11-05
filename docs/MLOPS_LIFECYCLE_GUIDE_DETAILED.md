@@ -33,13 +33,15 @@ Version: 2.0 (Comprehensive Edition)
 13. [Phase 8: Production Monitoring](#phase-8-production-monitoring)
 14. [Phase 9: Drift Detection & Alerts](#phase-9-drift-detection--alerts)
 15. [Phase 10: Retraining & Continuous Improvement](#phase-10-retraining--continuous-improvement)
+16. [Phase 11: Model Inference (Real-World Usage)](#phase-11-model-inference-real-world-usage)
 
 ### Part V: Automation & Best Practices
-16. [CI/CD Automation](#cicd-automation)
-17. [Security & Compliance](#security--compliance)
-18. [Cost Management & Optimization](#cost-management--optimization)
-19. [Troubleshooting & Operations](#troubleshooting--operations)
-20. [Production Readiness Checklist](#production-readiness-checklist)
+17. [CI/CD Automation](#cicd-automation)
+18. [Security & Compliance](#security--compliance)
+19. [Cost Management & Optimization](#cost-management--optimization)
+20. [Troubleshooting & Operations](#troubleshooting--operations)
+21. [Production Readiness Checklist](#production-readiness-checklist)
+22. [What Else Are We Missing?](#what-else-are-we-missing)
 
 ---
 
@@ -1641,6 +1643,1021 @@ Before deploying to production:
 - [ ] Model explainability documented
 - [ ] Bias testing completed
 - [ ] Regulatory approvals obtained
+
+---
+
+# Phase 11: Model Inference (Real-World Usage)
+
+**Duration:** <100ms per request (real-time)  
+**Frequency:** Continuous (production traffic)  
+**Cost:** Included in endpoint hosting cost
+
+## 11.1 Overview
+
+Once the model is deployed (Phase 7), **inference** is how you actually use it to make predictions. There are multiple ways to invoke the endpoint depending on your use case.
+
+### Inference Flow
+
+```
+Client Application
+    │
+    ├─ Prepare input data (patient features)
+    │
+    ▼
+HTTP/HTTPS Request → SageMaker Endpoint
+    │
+    ├─ Input validation
+    ├─ Data preprocessing (scaling)
+    ├─ Model prediction
+    ├─ Output formatting
+    │
+    ▼
+JSON/CSV Response ← Client receives prediction
+```
+
+---
+
+## 11.2 Inference Methods
+
+### Method 1: Direct API Call (Python SDK) ⭐ RECOMMENDED
+
+**Use Case:** Python applications, Jupyter notebooks, backend services
+
+**Example:**
+
+```python
+import boto3
+import json
+
+# Initialize SageMaker runtime client
+sagemaker_runtime = boto3.client('sagemaker-runtime', region_name='us-east-1')
+
+# Prepare input data (8 diabetes features)
+# [Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age]
+payload = {
+    "instances": [
+        [6, 148, 72, 35, 0, 33.6, 0.627, 50]  # Patient 1
+    ]
+}
+
+# Invoke endpoint
+response = sagemaker_runtime.invoke_endpoint(
+    EndpointName='diabetes-classifier-dev',
+    ContentType='application/json',
+    Accept='application/json',
+    Body=json.dumps(payload)
+)
+
+# Parse response
+result = json.loads(response['Body'].read().decode())
+print(json.dumps(result, indent=2))
+```
+
+**Expected Response:**
+
+```json
+{
+  "predictions": [
+    {
+      "prediction": 1,
+      "label": "Diabetes",
+      "probability": 0.78,
+      "confidence": 0.78
+    }
+  ],
+  "model_version": "1.0",
+  "timestamp": "2025-11-05 14:23:45"
+}
+```
+
+**Interpretation:**
+- **Prediction:** 1 (patient HAS diabetes)
+- **Probability:** 0.78 (78% confidence)
+- **Label:** "Diabetes" (human-readable)
+
+---
+
+### Method 2: AWS CLI (Command Line)
+
+**Use Case:** Quick testing, shell scripts, automation
+
+```powershell
+# Prepare data (CSV format)
+$payload = "6,148,72,35,0,33.6,0.627,50"
+
+# Invoke endpoint
+aws sagemaker-runtime invoke-endpoint `
+  --endpoint-name diabetes-classifier-dev `
+  --content-type text/csv `
+  --accept application/json `
+  --body $payload `
+  --region us-east-1 `
+  output.json
+
+# View result
+Get-Content output.json
+```
+
+**Expected Output (output.json):**
+```json
+{
+  "predictions": [{"prediction": 1, "label": "Diabetes", "probability": 0.78}]
+}
+```
+
+---
+
+### Method 3: Batch Transform (Large-Scale Processing)
+
+**Use Case:** Process thousands of records at once (batch predictions)
+
+**When to use:**
+- ✅ Millions of records to score
+- ✅ Non-real-time predictions (e.g., nightly batch job)
+- ✅ Cost optimization (no persistent endpoint needed)
+
+**Example:**
+
+```python
+from sagemaker.transformer import Transformer
+
+# Initialize transformer
+transformer = Transformer(
+    model_name='diabetes-model-v1',
+    instance_count=1,
+    instance_type='ml.m5.xlarge',
+    output_path='s3://bucket/batch-predictions/',
+    accept='text/csv'
+)
+
+# Run batch transform job
+transformer.transform(
+    data='s3://bucket/input-data/patients.csv',
+    content_type='text/csv',
+    split_type='Line'
+)
+
+# Wait for completion
+transformer.wait()
+
+# Results written to S3
+# s3://bucket/batch-predictions/patients.csv.out
+```
+
+**Cost Comparison:**
+
+| Method | Cost | Best For |
+|--------|------|----------|
+| **Real-time Endpoint** | $0.065/hour (24/7) | <1000 predictions/day |
+| **Batch Transform** | $0.269/hour (on-demand) | >10,000 predictions/batch |
+
+---
+
+### Method 4: Lambda Function (Serverless)
+
+**Use Case:** Triggered predictions, event-driven, API Gateway integration
+
+**Architecture:**
+
+```
+API Gateway → Lambda → SageMaker Endpoint → Response
+```
+
+**Lambda Function:**
+
+```python
+import json
+import boto3
+import os
+
+def lambda_handler(event, context):
+    """
+    Lambda function to invoke SageMaker endpoint
+    Triggered by API Gateway or other AWS services
+    """
+    # Parse input from API Gateway
+    body = json.loads(event['body'])
+    features = body['features']
+    
+    # Invoke SageMaker endpoint
+    sagemaker_runtime = boto3.client('sagemaker-runtime')
+    
+    response = sagemaker_runtime.invoke_endpoint(
+        EndpointName=os.environ['ENDPOINT_NAME'],
+        ContentType='application/json',
+        Body=json.dumps({"instances": [features]})
+    )
+    
+    # Parse prediction
+    result = json.loads(response['Body'].read().decode())
+    
+    # Return to API Gateway
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'  # CORS
+        },
+        'body': json.dumps(result)
+    }
+```
+
+**API Gateway Request:**
+
+```bash
+curl -X POST https://api-id.execute-api.us-east-1.amazonaws.com/prod/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "features": [6, 148, 72, 35, 0, 33.6, 0.627, 50]
+  }'
+```
+
+**Response:**
+```json
+{
+  "predictions": [{"prediction": 1, "label": "Diabetes", "probability": 0.78}]
+}
+```
+
+**Benefits:**
+- ✅ No server management
+- ✅ Auto-scaling
+- ✅ Pay per request ($0.20 per 1M requests)
+- ✅ Easy API integration
+
+---
+
+## 11.3 Input Data Formats
+
+### Format 1: JSON (Recommended)
+
+**Single prediction:**
+
+```json
+{
+  "instances": [
+    [6, 148, 72, 35, 0, 33.6, 0.627, 50]
+  ]
+}
+```
+
+**Multiple predictions:**
+
+```json
+{
+  "instances": [
+    [6, 148, 72, 35, 0, 33.6, 0.627, 50],
+    [1, 85, 66, 29, 0, 26.6, 0.351, 31],
+    [8, 183, 64, 0, 0, 23.3, 0.672, 32]
+  ]
+}
+```
+
+**Named features:**
+
+```json
+{
+  "features": {
+    "Pregnancies": 6,
+    "Glucose": 148,
+    "BloodPressure": 72,
+    "SkinThickness": 35,
+    "Insulin": 0,
+    "BMI": 33.6,
+    "DiabetesPedigreeFunction": 0.627,
+    "Age": 50
+  }
+}
+```
+
+---
+
+### Format 2: CSV
+
+**Single prediction:**
+```
+6,148,72,35,0,33.6,0.627,50
+```
+
+**Multiple predictions:**
+```
+6,148,72,35,0,33.6,0.627,50
+1,85,66,29,0,26.6,0.351,31
+8,183,64,0,0,23.3,0.672,32
+```
+
+---
+
+## 11.4 Custom Inference Code
+
+The project uses a **custom inference handler** (`src/deployment/inference.py`) that provides:
+
+### Feature 1: Automatic Scaling
+
+The handler includes a scaler that was saved during training:
+
+```python
+def predict_fn(input_data, model_dict):
+    model = model_dict['model']
+    scaler = model_dict.get('scaler')
+    
+    # Apply scaling (same as training)
+    if scaler is not None:
+        input_data = scaler.transform(input_data)
+    
+    # Make prediction
+    predictions = model.predict(xgb.DMatrix(input_data))
+    
+    return predictions
+```
+
+**Why this matters:**
+- Input data must be scaled exactly as during training
+- Scaler is automatically loaded and applied
+- No manual preprocessing needed by caller
+
+---
+
+### Feature 2: Multiple Output Formats
+
+```python
+def output_fn(predictions, response_content_type):
+    if response_content_type == 'application/json':
+        return json.dumps({
+            'prediction': int(pred),
+            'label': 'Diabetes' if pred == 1 else 'No Diabetes',
+            'probability': float(prob),
+            'confidence': float(prob) if pred == 1 else float(1 - prob)
+        })
+    elif response_content_type == 'text/csv':
+        return f"{pred},{prob}"
+```
+
+**Supported outputs:**
+- JSON (detailed response with labels)
+- CSV (simple prediction + probability)
+
+---
+
+### Feature 3: Error Handling
+
+```python
+try:
+    predictions = model.predict(input_data)
+except Exception as e:
+    logger.error(f"Prediction failed: {str(e)}")
+    return {
+        'error': str(e),
+        'status': 'failed'
+    }
+```
+
+---
+
+## 11.5 Production Inference Patterns
+
+### Pattern 1: Synchronous API (Real-Time)
+
+**Use Case:** User-facing applications, dashboards, mobile apps
+
+```python
+# Web app backend
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.json
+    
+    # Invoke SageMaker
+    response = sagemaker_runtime.invoke_endpoint(
+        EndpointName='diabetes-classifier-prod',
+        ContentType='application/json',
+        Body=json.dumps({"instances": [data['features']]})
+    )
+    
+    result = json.loads(response['Body'].read().decode())
+    
+    return jsonify(result)
+```
+
+**Latency:** <100ms  
+**Throughput:** 1000+ requests/second (with auto-scaling)
+
+---
+
+### Pattern 2: Asynchronous Queue (High Volume)
+
+**Use Case:** Background processing, high-volume predictions
+
+```
+SQS Queue → Lambda → SageMaker → DynamoDB/S3
+```
+
+```python
+import boto3
+
+sqs = boto3.client('sqs')
+sagemaker_runtime = boto3.client('sagemaker-runtime')
+
+# Process messages from queue
+while True:
+    messages = sqs.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=10)
+    
+    for msg in messages.get('Messages', []):
+        # Parse patient data
+        data = json.loads(msg['Body'])
+        
+        # Predict
+        response = sagemaker_runtime.invoke_endpoint(
+            EndpointName='diabetes-classifier-prod',
+            Body=json.dumps({"instances": [data['features']]})
+        )
+        
+        # Store result
+        result = json.loads(response['Body'].read())
+        dynamodb.put_item(TableName='predictions', Item=result)
+        
+        # Delete message
+        sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=msg['ReceiptHandle'])
+```
+
+---
+
+### Pattern 3: Streaming (Real-Time Events)
+
+**Use Case:** IoT devices, continuous monitoring
+
+```
+Kinesis Stream → Lambda → SageMaker → CloudWatch
+```
+
+---
+
+## 11.6 Performance & Monitoring
+
+### Endpoint Metrics (CloudWatch)
+
+**Automatically tracked:**
+
+| Metric | Description | Threshold |
+|--------|-------------|-----------|
+| **Invocations** | Total requests | Monitor for traffic patterns |
+| **ModelLatency** | Prediction time | Alert if >100ms (p99) |
+| **Overhead Latency** | Infrastructure time | Alert if >50ms |
+| **Invocation4XXErrors** | Client errors | Alert if >1% |
+| **Invocation5XXErrors** | Server errors | Alert if >0.1% |
+| **CPUUtilization** | Compute usage | Scale up if >80% |
+| **MemoryUtilization** | Memory usage | Scale up if >80% |
+
+---
+
+### Logging & Debugging
+
+**View endpoint logs:**
+
+```powershell
+# Stream logs
+aws logs tail /aws/sagemaker/Endpoints/diabetes-classifier-dev --follow
+
+# Search for errors
+aws logs filter-log-events `
+  --log-group-name /aws/sagemaker/Endpoints/diabetes-classifier-dev `
+  --filter-pattern "ERROR"
+```
+
+**Example log output:**
+
+```
+2025-11-05 14:23:45 INFO Loading model from /opt/ml/model
+2025-11-05 14:23:46 INFO Model loaded successfully
+2025-11-05 14:23:50 INFO Processing input with content type: application/json
+2025-11-05 14:23:50 INFO Input data shape: (1, 8)
+2025-11-05 14:23:50 INFO Input data scaled
+2025-11-05 14:23:50 INFO Predictions made for 1 samples
+2025-11-05 14:23:50 INFO Response: {"prediction": 1, "probability": 0.78}
+```
+
+---
+
+## 11.7 Security & Authentication
+
+### IAM-Based Authentication
+
+**Required permissions for caller:**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sagemaker:InvokeEndpoint"
+      ],
+      "Resource": [
+        "arn:aws:sagemaker:us-east-1:*:endpoint/diabetes-classifier-*"
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### VPC Endpoints (Private Access)
+
+**For enhanced security:**
+
+```hcl
+# Terraform configuration
+resource "aws_vpc_endpoint" "sagemaker_runtime" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.us-east-1.sagemaker.runtime"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.sagemaker_endpoint.id]
+}
+```
+
+**Benefits:**
+- Traffic stays within VPC (no internet)
+- Reduced latency
+- Enhanced security
+- Compliance with regulations
+
+---
+
+## 11.8 Cost Optimization for Inference
+
+### Strategy 1: Auto-Scaling
+
+**Scale based on traffic:**
+
+```python
+# Only scale up during business hours
+autoscaling_client.put_scaling_policy(
+    PolicyName='business-hours-scaling',
+    TargetTrackingScalingPolicyConfiguration={
+        'TargetValue': 100.0,  # Target invocations per instance
+        'ScaleInCooldown': 300,  # 5 min cooldown before scale down
+        'ScaleOutCooldown': 60   # 1 min cooldown before scale up
+    }
+)
+```
+
+**Cost Savings:** 50-70% during off-peak hours
+
+---
+
+### Strategy 2: Serverless Inference
+
+**For sporadic traffic:**
+
+```python
+from sagemaker.serverless import ServerlessInferenceConfig
+
+serverless_config = ServerlessInferenceConfig(
+    memory_size_in_mb=2048,  # 2GB
+    max_concurrency=10       # Max concurrent invocations
+)
+
+model.deploy(
+    serverless_inference_config=serverless_config,
+    endpoint_name='diabetes-serverless'
+)
+```
+
+**Cost:**
+- $0 when idle (no requests)
+- $0.20 per 1M requests + compute time
+- Best for <100 requests/hour
+
+---
+
+### Strategy 3: Multi-Model Endpoints
+
+**Host multiple models on same endpoint:**
+
+```python
+# Cost savings when hosting 5+ models
+# Share same compute instances
+# Pay only for instances, not per model
+```
+
+**Savings:** Up to 90% for multiple model scenarios
+
+---
+
+## 11.9 Testing Inference Locally
+
+### Local Testing (Before Deployment)
+
+```python
+# Test inference handler locally
+from src.deployment.inference import model_fn, predict_fn, input_fn, output_fn
+
+# Load model
+model_dict = model_fn('models/')
+
+# Prepare input
+sample_data = json.dumps({
+    "instances": [[6, 148, 72, 35, 0, 33.6, 0.627, 50]]
+})
+
+# Test prediction pipeline
+input_data = input_fn(sample_data, 'application/json')
+predictions = predict_fn(input_data, model_dict)
+response = output_fn(predictions, 'application/json')
+
+print(response)
+```
+
+**Expected Output:**
+```json
+{
+  "predictions": [
+    {
+      "prediction": 1,
+      "label": "Diabetes",
+      "probability": 0.78,
+      "confidence": 0.78
+    }
+  ]
+}
+```
+
+---
+
+## 11.10 Inference Troubleshooting
+
+### Issue: 4xx Errors (Client Error)
+
+**Error:**
+```json
+{
+  "message": "Could not parse request body into json: Expecting value: line 1 column 1 (char 0)"
+}
+```
+
+**Cause:** Invalid JSON format
+
+**Solution:**
+```python
+# Ensure valid JSON
+import json
+payload = json.dumps({"instances": [[...]]})  # Always use json.dumps
+```
+
+---
+
+### Issue: 5xx Errors (Server Error)
+
+**Error:**
+```
+ModelError: An error occurred (ModelError) when calling the InvokeEndpoint operation
+```
+
+**Cause:** Model inference failed (e.g., wrong input shape)
+
+**Diagnosis:**
+
+```powershell
+# Check CloudWatch logs
+aws logs tail /aws/sagemaker/Endpoints/diabetes-classifier-dev --follow
+```
+
+**Common causes:**
+- Wrong number of features (expected 8, got 10)
+- Missing scaling
+- Model file corrupted
+
+**Solution:**
+```python
+# Verify input shape matches training
+# Expected: (n_samples, 8)
+assert input_data.shape[1] == 8, f"Expected 8 features, got {input_data.shape[1]}"
+```
+
+---
+
+### Issue: High Latency (>500ms)
+
+**Symptoms:**
+- Slow predictions
+- CloudWatch shows high ModelLatency
+
+**Diagnosis:**
+
+```powershell
+# Check endpoint utilization
+aws cloudwatch get-metric-statistics `
+  --namespace AWS/SageMaker `
+  --metric-name CPUUtilization `
+  --dimensions Name=EndpointName,Value=diabetes-classifier-dev `
+  --start-time 2025-11-05T00:00:00Z `
+  --end-time 2025-11-05T23:59:59Z `
+  --period 300 `
+  --statistics Average
+```
+
+**Solutions:**
+1. **Scale up:** Add more instances
+2. **Upgrade instance:** ml.t2.medium → ml.m5.large
+3. **Optimize model:** Reduce model size, quantization
+4. **Enable caching:** Cache frequent predictions
+
+---
+
+## 11.11 Phase 11 Checklist
+
+- [ ] Endpoint deployed and InService
+- [ ] Test prediction successful (Python SDK)
+- [ ] Test prediction successful (AWS CLI)
+- [ ] Input validation working
+- [ ] Output format correct
+- [ ] Scaling configured (if production)
+- [ ] CloudWatch metrics tracking
+- [ ] Logging enabled and accessible
+- [ ] Error handling tested
+- [ ] Latency within SLA (<100ms)
+- [ ] Security/IAM permissions configured
+- [ ] Cost monitoring active
+- [ ] Documentation for API consumers
+- [ ] Integration tests passing
+
+---
+
+# What Else Are We Missing?
+
+## ✅ Currently Covered (Phases 0-11)
+
+1. ✅ **Project Initialization** - AWS setup, Terraform, GitHub
+2. ✅ **Development Workflow** - Git, PRs, code review
+3. ✅ **Infrastructure Deployment** - Terraform, multi-env
+4. ✅ **Data Engineering** - Validation, preprocessing, feature engineering
+5. ✅ **ML Pipeline** - Training, evaluation, registration
+6. ✅ **Model Deployment** - Endpoints, auto-scaling
+7. ✅ **Monitoring** - CloudWatch, drift detection
+8. ✅ **Retraining** - Automated triggers
+9. ✅ **CI/CD** - GitHub Actions workflows
+10. ✅ **Security** - IAM, OIDC, encryption
+11. ✅ **Cost Management** - Optimization strategies
+12. ✅ **Inference** - Real-world predictions (NEW!)
+
+---
+
+## 🔶 Potentially Missing (Advanced Topics)
+
+### 1. Model Explainability (SHAP, LIME)
+
+**Purpose:** Understand why model made specific prediction
+
+**Implementation:**
+
+```python
+import shap
+
+# Create explainer
+explainer = shap.TreeExplainer(model)
+
+# Explain prediction
+shap_values = explainer.shap_values(X_test)
+
+# Visualize
+shap.summary_plot(shap_values, X_test, feature_names=feature_names)
+```
+
+**When to add:** For healthcare/finance compliance
+
+---
+
+### 2. A/B Testing (Canary Deployment)
+
+**Purpose:** Test new model against production model
+
+**Implementation:**
+
+```python
+# Deploy with traffic splitting
+endpoint_config = {
+    'ProductionVariants': [
+        {
+            'VariantName': 'ModelA',
+            'ModelName': 'diabetes-v1',
+            'InitialInstanceCount': 2,
+            'InitialVariantWeight': 0.9  # 90% traffic
+        },
+        {
+            'VariantName': 'ModelB',
+            'ModelName': 'diabetes-v2',
+            'InitialInstanceCount': 1,
+            'InitialVariantWeight': 0.1  # 10% traffic
+        }
+    ]
+}
+```
+
+**When to add:** Before full production deployment of new model
+
+---
+
+### 3. Model Versioning & Rollback
+
+**Purpose:** Quick rollback to previous model version
+
+**Implementation:**
+
+```python
+# List model versions
+versions = sagemaker_client.list_model_packages(
+    ModelPackageGroupName='diabetes-classifier',
+    SortBy='CreationTime'
+)
+
+# Rollback to previous version
+previous_model_arn = versions['ModelPackageSummaryList'][1]['ModelPackageArn']
+
+# Update endpoint with previous model
+update_endpoint(endpoint_name='diabetes-prod', model_package_arn=previous_model_arn)
+```
+
+**When to add:** Production deployments
+
+---
+
+### 4. Data Quality Monitoring
+
+**Purpose:** Detect bad input data before prediction
+
+**Implementation:**
+
+```python
+def validate_input(features):
+    """Validate input before prediction"""
+    assert len(features) == 8, "Expected 8 features"
+    assert all(isinstance(f, (int, float)) for f in features), "All features must be numeric"
+    assert features[1] >= 0, "Glucose must be positive"
+    assert features[5] > 0, "BMI must be positive"
+    
+    return True
+```
+
+**When to add:** If receiving poor-quality user input
+
+---
+
+### 5. Shadow Mode Testing
+
+**Purpose:** Test new model without affecting production
+
+**Implementation:**
+
+```python
+# Production endpoint serves users
+prod_response = invoke_endpoint('diabetes-prod', data)
+
+# Shadow endpoint logs predictions but doesn't serve
+shadow_response = invoke_endpoint('diabetes-shadow', data)
+
+# Compare predictions
+log_comparison(prod_response, shadow_response)
+```
+
+**When to add:** Before switching to new model
+
+---
+
+### 6. Feature Store Integration
+
+**Purpose:** Centralized feature management
+
+**Implementation:**
+
+```python
+from sagemaker.feature_store.feature_group import FeatureGroup
+
+# Create feature group
+feature_group = FeatureGroup(
+    name='diabetes-features',
+    sagemaker_session=sagemaker_session
+)
+
+# Store features
+feature_group.ingest(data_frame, max_workers=3)
+
+# Retrieve for training
+features = feature_group.athena_query().run(
+    query_string='SELECT * FROM "diabetes-features" WHERE age > 30'
+)
+```
+
+**When to add:** Multiple models using same features
+
+---
+
+### 7. Model Performance SLAs
+
+**Purpose:** Define and monitor service level agreements
+
+**SLA Example:**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| **Availability** | 99.9% | Endpoint uptime |
+| **Latency (p99)** | <100ms | CloudWatch metrics |
+| **Error Rate** | <0.1% | 5xx errors |
+| **Accuracy** | ≥75% | Model quality monitoring |
+
+**Implementation:**
+
+```python
+# CloudWatch alarm for SLA breach
+cloudwatch.put_metric_alarm(
+    AlarmName='SLA-Breach-Latency',
+    MetricName='ModelLatency',
+    Threshold=100,  # ms
+    EvaluationPeriods=3,
+    ComparisonOperator='GreaterThanThreshold',
+    AlarmActions=[sns_topic_arn]
+)
+```
+
+**When to add:** Production deployments with customer commitments
+
+---
+
+### 8. Disaster Recovery & Backup
+
+**Purpose:** Recover from outages, data loss
+
+**Implementation:**
+
+```bash
+# Backup strategy
+1. S3 versioning: Enabled ✅
+2. Model artifacts: Replicated to us-west-2
+3. Terraform state: Backed up to separate bucket
+4. DynamoDB point-in-time recovery: Enabled
+5. Multi-region endpoint: Optional (cost: +100%)
+```
+
+**When to add:** Mission-critical production systems
+
+---
+
+### 9. Bias Detection & Fairness
+
+**Purpose:** Ensure model doesn't discriminate
+
+**Implementation:**
+
+```python
+from sagemaker import clarify
+
+# Bias detection
+clarify_processor = clarify.SageMakerClarifyProcessor(...)
+
+clarify_processor.run_bias(
+    data_config=data_config,
+    bias_config=bias_config,
+    model_config=model_config
+)
+```
+
+**When to add:** Healthcare, finance, hiring ML applications
+
+---
+
+### 10. Model Cards (Documentation)
+
+**Purpose:** Document model details for stakeholders
+
+**Example Model Card:**
+
+```markdown
+# Diabetes Classification Model Card
+
+**Model Version:** 1.0  
+**Training Date:** 2025-11-05  
+**Training Data:** 768 patients, 8 features  
+**Performance:** 76% accuracy, 0.85 AUC  
+**Use Case:** Predict diabetes risk  
+**Limitations:** Not for clinical diagnosis  
+**Ethical Considerations:** Balanced dataset, no demographic bias detected  
+```
+
+**When to add:** Regulated industries, compliance requirements
+
+---
+
+## 📋 Recommendation: What to Add Next
+
+**For Learning/Demo Projects:**
+✅ Current setup is comprehensive  
+🟡 Optional: Model explainability (SHAP)
+
+**For Production Systems:**
+🔴 **Must add:** A/B testing, rollback procedures, SLA monitoring  
+🟡 **Should add:** Feature store, bias detection, disaster recovery  
+🟢 **Nice to have:** Shadow mode, model cards
 
 ---
 
