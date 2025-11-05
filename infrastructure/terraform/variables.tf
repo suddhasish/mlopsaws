@@ -23,6 +23,12 @@ variable "region" {
   default     = "us-east-1"
 }
 
+variable "aws_region" {
+  description = "AWS region for resources (alias for compatibility)"
+  type        = string
+  default     = "us-east-1"
+}
+
 variable "owner_email" {
   description = "Email of the infrastructure owner"
   type        = string

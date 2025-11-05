@@ -104,7 +104,7 @@ module "sagemaker" {
   bucket_name                  = module.s3.bucket_name
   endpoint_name                = var.sagemaker_endpoint_name
   aws_region                   = var.aws_region
-  sns_topic_arns               = [module.monitoring.sns_topic_arn]
+  sns_topic_arns               = [module.monitoring.alerts_topic_arn]
 
   tags = merge(
     {

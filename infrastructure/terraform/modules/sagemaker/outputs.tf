@@ -17,10 +17,11 @@ output "data_quality_job_definition_name" {
   value       = try(aws_sagemaker_data_quality_job_definition.drift_monitor[0].name, null)
 }
 
-output "model_quality_job_definition_name" {
-  description = "Name of the Model Quality Monitoring Job Definition"
-  value       = try(aws_sagemaker_model_quality_job_definition.model_monitor[0].name, null)
-}
+# Commented out: Resource was removed due to AWS provider compatibility
+# output "model_quality_job_definition_name" {
+#   description = "Name of the Model Quality Monitoring Job Definition"
+#   value       = try(aws_sagemaker_model_quality_job_definition.model_monitor[0].name, null)
+# }
 
 output "monitoring_enabled" {
   description = "Whether monitoring is enabled"

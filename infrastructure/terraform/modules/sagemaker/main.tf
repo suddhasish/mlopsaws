@@ -33,8 +33,6 @@ resource "aws_sagemaker_data_quality_job_definition" "drift_monitor" {
   }
 
   data_quality_baseline_config {
-    baselining_job_name = "${var.project_name}-baseline-${var.environment}"
-
     constraints_resource {
       s3_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/constraints/constraints.json"
     }
@@ -85,72 +83,74 @@ resource "aws_sagemaker_data_quality_job_definition" "drift_monitor" {
 
 # -----------------------------------------------------------------------------
 # Model Quality Monitoring Job Definition (Model Performance Tracking)
+# COMMENTED OUT: Resource type not available in AWS provider 5.0
+# Model monitoring will be configured via Python SDK in src/monitoring/
 # -----------------------------------------------------------------------------
-resource "aws_sagemaker_model_quality_job_definition" "model_monitor" {
-  count = var.enable_monitoring ? 1 : 0
-
-  name     = "${var.project_name}-model-quality-${var.environment}"
-  role_arn = var.sagemaker_execution_role_arn
-
-  model_quality_app_specification {
-    image_uri                      = "156813124566.dkr.ecr.${var.aws_region}.amazonaws.com/sagemaker-model-monitor-analyzer"
-    problem_type                   = "BinaryClassification"
-    record_preprocessor_source_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/preprocessor.py"
-  }
-
-  model_quality_baseline_config {
-    baselining_job_name = "${var.project_name}-model-baseline-${var.environment}"
-
-    constraints_resource {
-      s3_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/model-constraints/constraints.json"
-    }
-  }
-
-  model_quality_job_input {
-    endpoint_input {
-      endpoint_name             = var.endpoint_name
-      local_path                = "/opt/ml/processing/input/endpoint"
-      s3_input_mode             = "File"
-      s3_data_distribution_type = "FullyReplicated"
-
-      probability_threshold_attribute = 0.5
-      inference_attribute             = "prediction"
-    }
-
-    ground_truth_s3_input {
-      s3_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/ground-truth"
-    }
-  }
-
-  model_quality_job_output_config {
-    monitoring_outputs {
-      s3_output {
-        s3_uri     = "s3://${var.bucket_name}/monitoring/${var.environment}/model-results"
-        local_path = "/opt/ml/processing/output"
-      }
-    }
-  }
-
-  job_resources {
-    cluster_config {
-      instance_count    = 1
-      instance_type     = "ml.m5.large"
-      volume_size_in_gb = 20
-    }
-  }
-
-  stopping_condition {
-    max_runtime_in_seconds = 3600
-  }
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project_name}-model-quality-${var.environment}"
-      Type = "ModelQualityMonitoring"
-    }
-  )
-}
+# resource "aws_sagemaker_model_quality_job_definition" "model_monitor" {
+#   count = var.enable_monitoring ? 1 : 0
+#
+#   name     = "${var.project_name}-model-quality-${var.environment}"
+#   role_arn = var.sagemaker_execution_role_arn
+#
+#   model_quality_app_specification {
+#     image_uri                      = "156813124566.dkr.ecr.${var.aws_region}.amazonaws.com/sagemaker-model-monitor-analyzer"
+#     problem_type                   = "BinaryClassification"
+#     record_preprocessor_source_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/preprocessor.py"
+#   }
+#
+#   model_quality_baseline_config {
+#     baselining_job_name = "${var.project_name}-model-baseline-${var.environment}"
+#
+#     constraints_resource {
+#       s3_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/model-constraints/constraints.json"
+#     }
+#   }
+#
+#   model_quality_job_input {
+#     endpoint_input {
+#       endpoint_name             = var.endpoint_name
+#       local_path                = "/opt/ml/processing/input/endpoint"
+#       s3_input_mode             = "File"
+#       s3_data_distribution_type = "FullyReplicated"
+#
+#       probability_threshold_attribute = 0.5
+#       inference_attribute             = "prediction"
+#     }
+#
+#     ground_truth_s3_input {
+#       s3_uri = "s3://${var.bucket_name}/monitoring/${var.environment}/ground-truth"
+#     }
+#   }
+#
+#   model_quality_job_output_config {
+#     monitoring_outputs {
+#       s3_output {
+#         s3_uri     = "s3://${var.bucket_name}/monitoring/${var.environment}/model-results"
+#         local_path = "/opt/ml/processing/output"
+#       }
+#     }
+#   }
+#
+#   job_resources {
+#     cluster_config {
+#       instance_count    = 1
+#       instance_type     = "ml.m5.large"
+#       volume_size_in_gb = 20
+#     }
+#   }
+#
+#   stopping_condition {
+#     max_runtime_in_seconds = 3600
+#   }
+#
+#   tags = merge(
+#     var.tags,
+#     {
+#       Name = "${var.project_name}-model-quality-${var.environment}"
+#       Type = "ModelQualityMonitoring"
+#     }
+#   )
+# }
 
 # -----------------------------------------------------------------------------
 # CloudWatch Alarms for Model Performance Degradation
