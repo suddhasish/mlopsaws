@@ -7,7 +7,7 @@ project:
   
 aws:
   region: us-east-1
-  account_id: "YOUR_AWS_ACCOUNT_ID"  # Replace with your AWS account ID
+  account_id: "891807086260"
   
 # S3 Configuration
 s3:
@@ -26,7 +26,7 @@ s3:
 # SageMaker Configuration
 sagemaker:
   # Execution Role - Replace with your SageMaker execution role ARN
-  role: "arn:aws:iam::YOUR_ACCOUNT_ID:role/SageMakerExecutionRole"
+  role: "arn:aws:iam::891807086260:role/service-role/AmazonSageMaker-ExecutionRole-20251026T145759"
   
   # Processing Job Configuration
   processing:
