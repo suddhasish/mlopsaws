@@ -31,12 +31,13 @@ Last Updated: November 4, 2025
 14. [Lambda ZIP Files Missing](#14-lambda-zip-files-missing)
 15. [SageMaker Quota Exceeded](#15-sagemaker-quota-exceeded)
 16. [GitHub Actions Artifact Deprecation](#16-github-actions-artifact-deprecation)
-17. [Resource Already Exists](#17-resource-already-exists)
+17. [GitHub Actions S3 Backend Authentication Error](#17-github-actions-s3-backend-authentication-error)
+18. [Resource Already Exists](#18-resource-already-exists)
 
 **Runtime Issues:**
-18. [Endpoint Deployment Timeout](#18-endpoint-deployment-timeout)
-19. [Training Job Failed](#19-training-job-failed)
-20. [High AWS Costs](#20-high-aws-costs)
+19. [Endpoint Deployment Timeout](#19-endpoint-deployment-timeout)
+20. [Training Job Failed](#20-training-job-failed)
+21. [High AWS Costs](#21-high-aws-costs)
 
 ---
 
@@ -659,7 +660,56 @@ Select-String -Path ".github/workflows/terraform.yml" -Pattern "artifact@v3"
 
 ---
 
-### 17. Resource Already Exists
+### 17. GitHub Actions S3 Backend Authentication Error
+
+**Error:**
+```
+Error: error configuring S3 Backend: no valid credential sources for S3 Backend found.
+Error: NoCredentialProviders: no valid providers in chain.
+```
+
+**Cause:**
+Terraform tries to initialize the S3 backend **before** AWS credentials are configured in the GitHub Actions workflow. The step order matters:
+- ❌ Wrong: Setup Terraform → Init (fails - no credentials) → Configure AWS Credentials
+- ✅ Correct: Setup Terraform → Configure AWS Credentials → Init (succeeds)
+
+**Solution:**
+Reorder workflow steps to configure AWS credentials **before** running `terraform init`:
+
+```yaml
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v4
+  
+  # Step 1: Setup Terraform CLI first
+  - name: Setup Terraform
+    uses: hashicorp/setup-terraform@v3
+    with:
+      terraform_version: 1.5.0
+  
+  # Step 2: Configure AWS credentials BEFORE init
+  - name: Configure AWS Credentials (OIDC)
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+      aws-region: ${{ secrets.AWS_REGION }}
+      role-session-name: GitHubActions-Terraform-Dev
+  
+  # Step 3: Now init can access S3 backend
+  - name: Terraform Init
+    run: terraform init
+    working-directory: infrastructure/terraform
+```
+
+**Key Points:**
+- The `validate` job uses `terraform init -backend=false` (skips backend, no credentials needed)
+- The `plan` and `apply` jobs **must** configure AWS credentials before `terraform init`
+- OIDC authentication (role-to-assume) is preferred over access keys
+- For staging/production using access keys, same rule applies: credentials first, then init
+
+---
+
+### 18. Resource Already Exists
 
 **Error:**
 ```
@@ -741,7 +791,9 @@ aws iam delete-role --role-name mlops-diabetes-sagemaker-execution-dev --profile
 
 ## Runtime Issues
 
-### 18. Endpoint Deployment Timeout
+---
+
+### 19. Endpoint Deployment Timeout
 
 **Error:**
 ```
@@ -778,7 +830,7 @@ aws sagemaker delete-endpoint --endpoint-name mlops-diabetes-endpoint-dev --prof
 
 ---
 
-### 19. Training Job Failed
+### 20. Training Job Failed
 
 **Error:**
 ```
@@ -810,7 +862,7 @@ aws s3 cp data/raw/diabetes.csv s3://mlops-diabetes-ACCOUNT-dev/data/raw/ --prof
 
 ---
 
-### 20. High AWS Costs
+### 21. High AWS Costs
 
 **Problem:** Monthly bill higher than expected.
 
