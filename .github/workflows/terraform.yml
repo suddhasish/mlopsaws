@@ -60,6 +60,10 @@ jobs:
       - name: Terraform Init
         run: terraform init -backend=false
         working-directory: infrastructure/terraform
+        env:
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+          AWS_DEFAULT_REGION: us-east-1
       
       - name: Terraform Validate
         run: terraform validate
