@@ -463,35 +463,43 @@ jobs:
         if: github.event_name == 'schedule' || github.event.inputs.monitoring_type == 'all'
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+          ENDPOINT_HEALTHY: ${{ needs.check-metrics.outputs.endpoint_healthy }}
+          DRIFT_RESULT: ${{ needs.drift-detection.result }}
         run: |
           if [ -n "$SLACK_WEBHOOK" ]; then
+            HEALTH_STATUS="✅ Healthy"
+            if [ "$ENDPOINT_HEALTHY" != "true" ]; then
+              HEALTH_STATUS="❌ Unhealthy"
+            fi
+            
             curl -X POST $SLACK_WEBHOOK \
               -H 'Content-Type: application/json' \
-              -d '{
-                "text": "📊 Weekly MLOps Monitoring Report",
-                "blocks": [
+              -d "{
+                \"text\": \"📊 Weekly MLOps Monitoring Report\",
+                \"blocks\": [
                   {
-                    "type": "section",
-                    "text": {
-                      "type": "mrkdwn",
-                      "text": "*MLOps Monitoring Report*\n Environment: ${{ github.event.inputs.environment || \"dev\" }}"
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"*MLOps Monitoring Report*\\nEnvironment: ${ENVIRONMENT}\"
                     }
                   },
                   {
-                    "type": "section",
-                    "fields": [
+                    \"type\": \"section\",
+                    \"fields\": [
                       {
-                        "type": "mrkdwn",
-                        "text": "*Endpoint Health:*\n${{ needs.check-metrics.outputs.endpoint_healthy == \"true\" && \"✅ Healthy\" || \"❌ Unhealthy\" }}"
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Endpoint Health:*\\n${HEALTH_STATUS}\"
                       },
                       {
-                        "type": "mrkdwn",
-                        "text": "*Drift Detection:*\n${{ needs.drift-detection.result }}"
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Drift Detection:*\\n${DRIFT_RESULT}\"
                       }
                     ]
                   }
                 ]
-              }'
+              }"
           fi
 
   # ============================================================================
