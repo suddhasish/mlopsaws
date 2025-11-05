@@ -854,3 +854,812 @@ Before proceeding to Phase 1, ensure:
 
 ---
 
+
+# Phase 1: Development & Code Changes
+
+**Duration:** 15-30 minutes per feature  
+**Frequency:** Multiple times per week  
+**Cost:** $0 (development is local)
+
+## 1.1 Overview
+
+Phase 1 is where data scientists and ML engineers make code changes to improve model accuracy, add new features, fix bugs, update configurations, and optimize performance. This phase follows Git best practices with feature branches and pull requests.
+
+---
+
+## 1.2 Git Workflow
+
+### Step 1.1: Create Feature Branch
+
+```bash
+# Ensure you're on main and up to date
+git checkout main
+git pull origin main
+
+# Create and checkout new feature branch
+git checkout -b feature/improve-model-accuracy
+```
+
+**Expected Output:**
+```
+Switched to a new branch 'feature/improve-model-accuracy'
+```
+
+---
+
+### Step 1.2: Make Code Changes
+
+**Example A) Update Hyperparameters** (`src/training/train.py`):
+
+```python
+# After (tuning for better performance)
+parser.add_argument('--max-depth', type=int, default=7)
+parser.add_argument('--eta', type=float, default=0.1)
+```
+
+**Example B) Add Feature Engineering** (`src/preprocessing/preprocess.py`):
+
+```python
+def add_bmi_categories(df):
+    '''Categorize BMI into risk groups'''
+    df['BMI_Category'] = pd.cut(
+        df['BMI'], 
+        bins=[0, 18.5, 25, 30, 100],
+        labels=['Underweight', 'Normal', 'Overweight', 'Obese']
+    )
+    return df
+```
+
+---
+
+### Step 1.3: Test Locally
+
+```powershell
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+
+# Run unit tests
+python -m pytest tests/ -v
+
+# Run linting
+flake8 src/ --max-line-length=100
+
+# Format code automatically
+black src/
+```
+
+**Expected Output:**
+```
+===== 15 passed, 0 failed in 2.34s =====
+All done!   
+10 files reformatted.
+```
+
+---
+
+### Step 1.4: Commit Changes
+
+```bash
+git add .
+git commit -m "feat: Improve model accuracy with hyperparameter tuning
+
+- Increase max_depth from 5 to 7
+- Decrease learning rate (eta) from 0.2 to 0.1
+- Expected impact: +2-3% accuracy improvement"
+```
+
+### Step 1.5: Push to GitHub
+
+```bash
+git push -u origin feature/improve-model-accuracy
+```
+
+### Step 1.6: Create Pull Request
+
+1. Go to GitHub repository
+2. Click "Compare & pull request"
+3. Fill PR description with changes, testing notes, expected impact
+4. Assign reviewers and add labels
+5. Click "Create pull request"
+
+### Step 1.7: Code Review & Merge
+
+After approval and CI checks pass, merge to main branch using "Squash and merge" option.
+
+---
+
+## 1.3 What Happens After Merge?
+
+Automated CI/CD pipelines trigger:
+- Terraform workflow (if infrastructure changed)
+- ML pipeline workflow (if ML code changed)
+- Monitoring workflow (always runs)
+
+---
+
+# Phase 2: Infrastructure Deployment
+
+**Duration:** 5-15 minutes (automated)  
+**Frequency:** As needed  
+**Cost:** Depends on resources (~$50-300/month)
+
+## 2.1 Terraform Workflow (Automated)
+
+### Step 2.1: Validation Phase
+
+```bash
+terraform fmt -check -recursive
+terraform validate
+tfsec infrastructure/terraform/
+```
+
+### Step 2.2: Terraform Plan (DEV)
+
+```bash
+terraform plan -var-file="environments/dev/terraform.tfvars" -out=tfplan-dev
+```
+
+**Expected Output:**
+```
+Plan: 12 to add, 0 to change, 0 to destroy.
+```
+
+### Step 2.3: Terraform Apply (DEV)
+
+```bash
+terraform apply -auto-approve tfplan-dev
+```
+
+**Deployment creates:**
+- S3 buckets (data, models, artifacts)
+- SageMaker resources (pipelines, model registry)
+- IAM roles and policies
+- CloudWatch dashboards and alarms
+- SNS topics for notifications
+
+**Deployment Time:** 5-10 minutes
+
+---
+
+## 2.2 Multi-Environment Deployment
+
+| Environment | Trigger | Approval | Cost/Month |
+|------------|---------|----------|------------|
+| **DEV** | Auto on push | None | $50-100 |
+| **STAGING** | Manual/Auto | Required | $100-150 |
+| **PRODUCTION** | Manual only | 2 approvers | $150-300 |
+
+---
+
+# Phase 3: Data Engineering & Preparation
+
+**Duration:** 10-20 minutes (automated)  
+**Frequency:** Every pipeline run  
+**Cost:** $2-5 per job
+
+## 3.1 Data Validation
+
+```python
+def validate_data(df):
+    # Check: No empty dataset
+    assert len(df) > 0
+    
+    # Check: Expected columns present
+    # Check: Data types correct
+    # Check: Value ranges valid
+    # Check: Class distribution reasonable
+    # Check: Missing values < 50%
+    
+    return validation_results
+```
+
+## 3.2 Preprocessing Steps
+
+1. **Load data from S3**
+2. **Validate data quality**
+3. **Handle missing values** (median imputation, forward fill)
+4. **Engineer features** (BMI categories, age groups, risk scores)
+5. **Train/val/test split** (60/20/20, stratified)
+6. **Scale features** (StandardScaler)
+7. **Save to S3** (XGBoost CSV format)
+
+**Output:**
+```
+s3://bucket/processed/train.csv
+s3://bucket/processed/validation.csv  
+s3://bucket/processed/test.csv
+s3://bucket/processed/scaler.pkl
+s3://bucket/processed/metadata.json
+```
+
+---
+
+# Phase 4: ML Pipeline Execution
+
+**Duration:** 15-25 minutes (automated)  
+**Frequency:** On code changes or manual trigger  
+**Cost:** $3-8 per pipeline run
+
+## 4.1 SageMaker Pipeline Steps
+
+### Step 4.1: Preprocessing Step
+- Instance: ml.m5.xlarge
+- Duration: 5-10 minutes
+- Cost: ~$0.24
+- Output: Processed train/val/test data
+
+### Step 4.2: Training Step
+- Instance: ml.m5.xlarge
+- Algorithm: XGBoost 1.5-1
+- Duration: 10-15 minutes
+- Cost: ~$0.48
+- Output: Trained model artifacts
+
+### Step 4.3: Evaluation Step
+- Instance: ml.m5.xlarge
+- Duration: 2-3 minutes
+- Cost: ~$0.10
+- Output: Metrics (accuracy, precision, recall, F1, AUC)
+
+### Step 4.4: Model Registration Step
+- Registers model in SageMaker Model Registry
+- Attaches metadata and metrics
+- Sets approval status
+- Duration: 1 minute
+- Cost: FREE
+
+---
+
+## 4.2 Training Execution
+
+```python
+# XGBoost training with hyperparameters
+params = {
+    'max_depth': 7,
+    'eta': 0.1,
+    'gamma': 4,
+    'min_child_weight': 6,
+    'subsample': 0.8,
+    'objective': 'binary:logistic',
+    'eval_metric': 'auc'
+}
+
+bst = xgb.train(
+    params=params,
+    dtrain=dtrain,
+    num_boost_round=150,
+    evals=[(dtrain, 'train'), (dval, 'validation')],
+    early_stopping_rounds=10
+)
+```
+
+**Expected Training Output:**
+```
+[0] train-auc:0.7234  validation-auc:0.7123
+[10] train-auc:0.8456  validation-auc:0.8234
+...
+[95] train-auc:0.9234  validation-auc:0.8567
+Best iteration: 85
+```
+
+---
+
+## 4.3 Model Evaluation
+
+```python
+# Calculate metrics
+accuracy = 0.76
+precision = 0.74
+recall = 0.72
+f1_score = 0.73
+roc_auc = 0.85
+
+# Quality gate thresholds
+MIN_ACCURACY = 0.70
+MIN_AUC = 0.75
+
+if accuracy >= MIN_ACCURACY and roc_auc >= MIN_AUC:
+    # Register model
+    register_model_in_registry()
+else:
+    # Skip registration
+    logger.warning("Model quality below threshold")
+```
+
+---
+
+# Phase 5: Model Evaluation & Quality Gates
+
+**Duration:** 2-5 minutes  
+**Frequency:** Every successful training run  
+**Cost:** Included in training cost
+
+## 5.1 Metrics Calculated
+
+| Metric | Threshold | Current | Status |
+|--------|-----------|---------|--------|
+| Accuracy |  0.70 | 0.76 |  PASS |
+| Precision |  0.65 | 0.74 |  PASS |
+| Recall |  0.60 | 0.72 |  PASS |
+| F1-Score |  0.65 | 0.73 |  PASS |
+| ROC-AUC |  0.75 | 0.85 |  PASS |
+
+**Decision:**  Register model
+
+---
+
+# Phase 6: Model Registration & Versioning
+
+**Duration:** 1-2 minutes  
+**Frequency:** After quality gates pass  
+**Cost:** FREE
+
+## 6.1 Registration Process
+
+```python
+model_package = sagemaker_client.create_model_package(
+    ModelPackageGroupName='diabetes-classifier-package-group',
+    ModelPackageDescription='XGBoost diabetes classifier v1.2',
+    ModelApprovalStatus='PendingManualApproval',  # or 'Approved'
+    InferenceSpecification={
+        'Containers': [{
+            'Image': training_image,
+            'ModelDataUrl': model_s3_uri
+        }],
+        'SupportedContentTypes': ['text/csv'],
+        'SupportedResponseMIMETypes': ['application/json']
+    },
+    ModelMetrics={
+        'ModelQuality': {
+            'Statistics': {
+                'S3Uri': metrics_s3_uri
+            }
+        }
+    }
+)
+```
+
+**Model Version:** Automatically incremented (v1, v2, v3...)
+
+---
+
+# Phase 7: Model Deployment
+
+**Duration:** 10-15 minutes  
+**Frequency:** After model approval  
+**Cost:** $30-150/month (endpoint hosting)
+
+## 7.1 Deployment Steps
+
+### Step 7.1: Get Approved Model
+
+```python
+response = sagemaker_client.list_model_packages(
+    ModelPackageGroupName='diabetes-classifier-package-group',
+    ModelApprovalStatus='Approved',
+    SortBy='CreationTime',
+    SortOrder='Descending',
+    MaxResults=1
+)
+
+model_package_arn = response['ModelPackageSummaryList'][0]['ModelPackageArn']
+```
+
+### Step 7.2: Create Endpoint
+
+```python
+predictor = model.deploy(
+    initial_instance_count=1,
+    instance_type='ml.t2.medium',
+    endpoint_name='diabetes-classifier-dev',
+    serializer=CSVSerializer(),
+    deserializer=JSONDeserializer()
+)
+```
+
+**Deployment time:** 10-15 minutes
+
+### Step 7.3: Test Endpoint
+
+```python
+test_data = [[6, 148, 72, 35, 0, 33.6, 0.627, 50]]
+response = predictor.predict(test_data)
+
+# Output: {'predictions': [0.78]}  # 78% probability of diabetes
+```
+
+---
+
+## 7.2 Auto-Scaling Configuration
+
+```python
+autoscaling_client.put_scaling_policy(
+    PolicyName='diabetes-endpoint-scaling-policy',
+    ServiceNamespace='sagemaker',
+    ResourceId='endpoint/diabetes-classifier/variant/AllTraffic',
+    ScalableDimension='sagemaker:variant:DesiredInstanceCount',
+    PolicyType='TargetTrackingScaling',
+    TargetTrackingScalingPolicyConfiguration={
+        'TargetValue': 1000.0,  # Target invocations per instance
+        'PredefinedMetricSpecification': {
+            'PredefinedMetricType': 'SageMakerVariantInvocationsPerInstance'
+        },
+        'ScaleInCooldown': 300,
+        'ScaleOutCooldown': 60
+    }
+)
+```
+
+---
+
+# Phase 8: Production Monitoring
+
+**Duration:** Continuous  
+**Frequency:** 24/7  
+**Cost:** $10-30/month
+
+## 8.1 Monitoring Components
+
+### Component 1: CloudWatch Metrics (FREE)
+- Endpoint invocations
+- Model latency (p50, p90, p99)
+- Error rate
+- Instance CPU/memory
+
+### Component 2: Model Quality Monitoring ($0.27/check)
+- Ground truth labeling
+- Performance degradation detection
+- Accuracy tracking over time
+
+### Component 3: Data Drift Detection ($0.27/check)
+- Statistical drift (KS test, PSI, Chi-Square)
+- Feature distribution changes
+- Baseline comparison
+
+### Component 4: Custom Metrics (FREE)
+- Prediction distribution
+- Business KPIs
+- Custom alerts
+
+---
+
+## 8.2 CloudWatch Dashboards
+
+Pre-configured dashboard includes:
+- Endpoint invocations (requests/minute)
+- Model latency (milliseconds)
+- Error rate (4xx, 5xx)
+- Drift score (0-1)
+- CPU/memory utilization
+
+**Access:**
+```
+https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=MLOps-Diabetes-Dev
+```
+
+---
+
+# Phase 9: Drift Detection & Alerts
+
+**Duration:** 5-10 minutes per check  
+**Frequency:** Hourly or daily  
+**Cost:** $0.27 per monitoring job
+
+## 9.1 Drift Types Monitored
+
+1. **Data Drift:** Input feature distributions change
+2. **Prediction Drift:** Model output distribution changes
+3. **Concept Drift:** Relationship between features and target changes
+4. **Model Quality Drift:** Performance degrades over time
+
+## 9.2 Alert Configuration
+
+```python
+# SNS notification when drift detected
+cloudwatch.put_metric_alarm(
+    AlarmName='diabetes-model-drift-alarm',
+    MetricName='FeatureDrift',
+    Namespace='MLOps/Diabetes',
+    Statistic='Average',
+    Period=3600,
+    EvaluationPeriods=1,
+    Threshold=0.3,  # Drift score threshold
+    ComparisonOperator='GreaterThanThreshold',
+    AlarmActions=[sns_topic_arn]
+)
+```
+
+**Alert destinations:**
+- Email (SNS)
+- Slack webhook
+- PagerDuty (production)
+- GitHub Issues (auto-created)
+
+---
+
+# Phase 10: Retraining & Continuous Improvement
+
+**Duration:** 20-30 minutes (automated)  
+**Frequency:** Weekly or triggered by drift  
+**Cost:** Same as Phase 4 ($3-8)
+
+## 10.1 Retraining Triggers
+
+1. **Scheduled:** Weekly/monthly retraining
+2. **Drift-based:** When drift score > 0.3
+3. **Performance-based:** When accuracy drops > 5%
+4. **Data-based:** When new training data available
+
+## 10.2 Retraining Workflow
+
+```python
+def trigger_retraining(reason):
+    # 1. Fetch latest data from S3
+    # 2. Run preprocessing pipeline
+    # 3. Train new model
+    # 4. Evaluate against current production model
+    # 5. If better, register new model
+    # 6. Update endpoint with new model
+    # 7. Monitor for 24 hours
+    # 8. If stable, mark as production
+    
+    logger.info(f"Retraining triggered: {reason}")
+    pipeline.start()
+```
+
+---
+
+# CI/CD Automation
+
+## GitHub Actions Workflows
+
+### Workflow 1: Terraform CI/CD
+
+**File:** `.github/workflows/terraform.yml`
+
+**Triggers:**
+- Push to main/develop (Terraform files changed)
+- Manual dispatch
+
+**Jobs:**
+1. Validate  Format check, validation, security scan
+2. Plan (DEV)  Calculate infrastructure changes
+3. Apply (DEV)  Deploy to dev environment
+4. Plan (Staging)  Calculate staging changes
+5. Apply (Staging)  Deploy to staging (manual approval)
+6. Plan (Production)  Calculate prod changes
+7. Apply (Production)  Deploy to prod (manual approval, 2 reviewers)
+
+**Estimated runtime:** 5-15 minutes per environment
+
+---
+
+### Workflow 2: ML Pipeline CI/CD
+
+**File:** `.github/workflows/ml_pipeline.yml` (if exists)
+
+**Triggers:**
+- Push to main (ML code changed)
+- Manual dispatch
+
+**Jobs:**
+1. Lint & Test  Run pytest, flake8, black
+2. Trigger Pipeline  Start SageMaker Pipeline
+3. Wait for Completion  Poll pipeline status
+4. Evaluate Results  Check quality gates
+5. Deploy Model  If approved, deploy to endpoint
+6. Smoke Test  Verify endpoint health
+
+---
+
+### Workflow 3: Monitoring & Drift Detection
+
+**File:** `.github/workflows/monitoring_pipeline.yml`
+
+**Triggers:**
+- Schedule (cron: daily at 6 AM UTC)
+- Manual dispatch
+
+**Jobs:**
+1. Check Model Metrics  Query CloudWatch
+2. Run Drift Detection  SageMaker Model Monitor
+3. Analyze Results  Calculate drift scores
+4. Send Alerts  If drift detected, notify team
+5. Trigger Retraining  If drift > threshold
+
+---
+
+# Security & Compliance
+
+## Security Best Practices
+
+ **IAM Least Privilege:**
+- Separate roles for each component
+- No root account usage
+- MFA enforced
+- Temporary credentials (OIDC)
+
+ **Encryption:**
+- S3 server-side encryption (SSE-S3)
+- SageMaker encryption at rest
+- TLS 1.2+ for data in transit
+
+ **Access Control:**
+- S3 bucket policies
+- VPC endpoints (optional)
+- CloudTrail audit logging
+- IAM Access Analyzer
+
+ **Secrets Management:**
+- GitHub Secrets for credentials
+- AWS Secrets Manager for API keys
+- No hardcoded credentials in code
+- Regular secret rotation
+
+---
+
+# Cost Management & Optimization
+
+## Cost Optimization Strategies
+
+1. **Use Spot Instances for Training** (-70% cost)
+```python
+train_args = TrainingStep(
+    estimator=xgboost_estimator,
+    use_spot_instances=True,
+    max_wait=7200
+)
+```
+
+2. **Stop Dev Endpoints When Not in Use**
+```powershell
+aws sagemaker delete-endpoint --endpoint-name diabetes-classifier-dev
+```
+
+3. **Use Smaller Instances for Dev**
+- Dev: ml.t2.medium ($0.065/hour)
+- Prod: ml.m5.large ($0.134/hour)
+
+4. **Enable S3 Lifecycle Policies**
+```
+Move old data to Glacier after 90 days
+Delete temporary files after 30 days
+```
+
+5. **Use Reserved Instances for Production** (-40% cost)
+
+6. **Monitor with AWS Cost Explorer**
+- Set budget alerts at 80% threshold
+- Tag resources by environment
+- Review monthly cost reports
+
+---
+
+# Troubleshooting & Operations
+
+## Common Issues
+
+### Issue: Pipeline Fails with "Resource Limit Exceeded"
+
+**Error:**
+```
+ResourceLimitExceeded: The account-level service limit 'ml.m5.xlarge for training job usage' is 0
+```
+
+**Solution:**
+Request quota increase in AWS Service Quotas console.
+
+---
+
+### Issue: Endpoint Returns 500 Errors
+
+**Symptoms:**
+- Endpoint invocations fail
+- CloudWatch shows ModelInvocationError
+
+**Diagnosis:**
+```powershell
+aws logs tail /aws/sagemaker/Endpoints/diabetes-classifier --follow
+```
+
+**Common Causes:**
+- Input data format mismatch
+- Model serialization issue
+- Insufficient memory
+
+**Solution:**
+Check input format matches model expectations (CSV, JSON, etc.)
+
+---
+
+### Issue: Drift Detection Always Triggers
+
+**Symptoms:**
+- Drift score always > threshold
+- Constant retraining alerts
+
+**Diagnosis:**
+Check baseline data distribution vs current data.
+
+**Solution:**
+- Update baseline with recent data
+- Adjust drift threshold (0.3  0.5)
+- Use different statistical test
+
+---
+
+# Production Readiness Checklist
+
+Before deploying to production:
+
+## Infrastructure
+- [ ] Multi-AZ deployment configured
+- [ ] Auto-scaling enabled and tested
+- [ ] Backup and disaster recovery plan
+- [ ] Monitoring dashboards configured
+- [ ] All alarms tested and validated
+- [ ] Cost budgets and alerts set
+
+## Security
+- [ ] Least privilege IAM policies
+- [ ] Encryption enabled (at rest and in transit)
+- [ ] Secrets rotated
+- [ ] CloudTrail logging enabled
+- [ ] Compliance requirements met
+- [ ] Security scan passed (no critical issues)
+
+## Model Quality
+- [ ] Model accuracy meets requirements (70%)
+- [ ] Quality gates configured and tested
+- [ ] A/B testing plan (if applicable)
+- [ ] Rollback procedure documented
+- [ ] Model registry approval workflow
+
+## Monitoring
+- [ ] All metrics being collected
+- [ ] Drift detection configured
+- [ ] Alert routing tested
+- [ ] On-call rotation established
+- [ ] Incident response runbook created
+
+## Documentation
+- [ ] Architecture diagrams updated
+- [ ] API documentation complete
+- [ ] Runbooks for common operations
+- [ ] Troubleshooting guides
+- [ ] Team training completed
+
+## Testing
+- [ ] Unit tests passing (100%)
+- [ ] Integration tests passing
+- [ ] Load testing completed
+- [ ] Endpoint smoke tests passing
+- [ ] Rollback tested
+
+## Compliance
+- [ ] Data privacy requirements met
+- [ ] Model explainability documented
+- [ ] Bias testing completed
+- [ ] Regulatory approvals obtained
+
+---
+
+# Conclusion
+
+**You now have a complete, production-ready MLOps pipeline!**
+
+This guide covered all 10 phases plus CI/CD, security, cost management, and troubleshooting. 
+
+**Total setup time:** 2-4 hours  
+**Monthly cost (dev):** $50-100  
+**Monthly cost (production):** $150-300
+
+**Next steps:**
+1. Execute Phase 0 (setup)
+2. Deploy infrastructure (Phase 2)
+3. Run your first pipeline (Phases 3-4)
+4. Monitor and improve (Phases 8-10)
+
+**Questions?** Check TROUBLESHOOTING.md or create a GitHub issue.
+
+** Happy MLOps Engineering! **
