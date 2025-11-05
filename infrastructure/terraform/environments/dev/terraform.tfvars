@@ -53,7 +53,7 @@ enable_guardduty      = false
 enable_auto_shutdown    = false                      # Disabled - Lambda functions not yet created
 auto_shutdown_schedule  = "cron(0 19 ? * MON-FRI *)" # 7 PM weekdays
 auto_startup_schedule   = "cron(0 8 ? * MON-FRI *)"  # 8 AM weekdays
-budget_amount           = 100                        # $100/month budget for dev
+budget_amount           = 60                        # $100/month budget for dev
 budget_alert_thresholds = [80, 100]                  # Alert at 80% and 100%
 
 # Feature Store - Disabled for dev
