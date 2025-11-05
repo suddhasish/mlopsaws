@@ -261,6 +261,48 @@ class DiabetesPipeline:
         
         return step_eval, evaluation_report
     
+    def create_experiment_tracking_step(self, step_train, step_eval, evaluation_report):
+        """Create experiment tracking step to log to SageMaker Experiments"""
+        logger.info("Creating experiment tracking step...")
+        
+        # SKLearn processor for experiment tracking
+        sklearn_processor = SKLearnProcessor(
+            framework_version='1.0-1',
+            role=self.role,
+            instance_type='ml.t3.medium',  # Small instance is sufficient
+            instance_count=1,
+            base_job_name='diabetes-experiment-tracking',
+            sagemaker_session=self.sagemaker_session
+        )
+        
+        # Define experiment tracking step
+        step_experiment = ProcessingStep(
+            name='TrackExperiment',
+            processor=sklearn_processor,
+            inputs=[
+                ProcessingInput(
+                    source=step_eval.properties.ProcessingOutputConfig.Outputs['evaluation'].S3Output.S3Uri,
+                    destination='/opt/ml/processing/evaluation'
+                )
+            ],
+            outputs=[
+                ProcessingOutput(
+                    output_name='experiment_log',
+                    source='/opt/ml/processing/output',
+                    destination=f's3://{self.bucket}/{self.prefix}/experiments'
+                )
+            ],
+            code='src/monitoring/track_experiment.py',
+            job_arguments=[
+                '--training-job-name', step_train.properties.TrainingJobName,
+                '--model-artifact-uri', step_train.properties.ModelArtifacts.S3ModelArtifacts,
+                '--evaluation-results', '/opt/ml/processing/evaluation/evaluation_results.json',
+                '--experiment-name', 'diabetes-classification-experiments'
+            ]
+        )
+        
+        return step_experiment
+    
     def create_model_registration_step(self, step_train, step_eval, evaluation_report, parameters):
         """Create model registration step"""
         logger.info("Creating model registration step...")
@@ -359,6 +401,9 @@ class DiabetesPipeline:
         # Create evaluation step
         step_eval, evaluation_report = self.create_evaluation_step(step_train, step_process)
         
+        # Create experiment tracking step (logs to SageMaker Experiments)
+        step_experiment = self.create_experiment_tracking_step(step_train, step_eval, evaluation_report)
+        
         # Create model registration step
         step_register = self.create_model_registration_step(
             step_train, step_eval, evaluation_report, parameters
@@ -367,15 +412,16 @@ class DiabetesPipeline:
         # Create conditional step
         step_cond = self.create_condition_step(step_eval, evaluation_report, step_register)
         
-        # Create pipeline
+        # Create pipeline - experiment tracking runs after evaluation, before conditional registration
         pipeline = Pipeline(
             name=self.config['pipeline']['name'],
             parameters=list(parameters.values()),
-            steps=[step_process, step_train, step_eval, step_cond],
+            steps=[step_process, step_train, step_eval, step_experiment, step_cond],
             sagemaker_session=self.sagemaker_session
         )
         
         logger.info(f"Pipeline '{pipeline.name}' created successfully for environment: {self.environment}")
+        logger.info("Pipeline includes experiment tracking to SageMaker Experiments")
         
         return pipeline
     

@@ -88,7 +88,7 @@ module "networking" {
 }
 
 # =============================================================================
-# SAGEMAKER MODULE - Model Registry
+# SAGEMAKER MODULE - Model Registry & Monitoring
 # =============================================================================
 
 module "sagemaker" {
@@ -96,7 +96,16 @@ module "sagemaker" {
 
   project_name               = var.project_name
   environment                = var.environment
-  create_model_package_group = var.create_model_package_group
+  enable_model_package_group = var.enable_model_package_group
+  enable_monitoring          = var.enable_sagemaker_monitoring
+  
+  # Monitoring configuration (only used if enable_monitoring = true)
+  sagemaker_execution_role_arn = module.iam.sagemaker_execution_role_arn
+  bucket_name                  = module.s3.bucket_name
+  endpoint_name                = var.sagemaker_endpoint_name
+  aws_region                   = var.aws_region
+  sns_topic_arns               = [module.monitoring.sns_topic_arn]
+  
   tags = merge(
     {
       Project     = var.project_name

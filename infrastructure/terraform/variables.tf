@@ -261,10 +261,22 @@ variable "enable_guardduty" {
 # COST OPTIMIZATION VARIABLES
 # =============================================================================
 
-variable "create_model_package_group" {
-  description = "Whether to create SageMaker Model Package Group (requires quota approval if currently 0)"
+variable "enable_model_package_group" {
+  description = "Enable SageMaker Model Package Group creation (disable if quota is 0)"
   type        = bool
   default     = true
+}
+
+variable "enable_sagemaker_monitoring" {
+  description = "Enable SageMaker Model Monitor for data drift and model quality tracking (adds ~$6.50/day if enabled)"
+  type        = bool
+  default     = false
+}
+
+variable "sagemaker_endpoint_name" {
+  description = "Name of the SageMaker endpoint to monitor (required if enable_sagemaker_monitoring = true)"
+  type        = string
+  default     = ""
 }
 
 variable "enable_auto_shutdown" {

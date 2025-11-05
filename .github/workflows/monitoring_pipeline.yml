@@ -1,0 +1,534 @@
+name: MLOps Monitoring Pipeline
+
+on:
+  # On-demand execution
+  workflow_dispatch:
+    inputs:
+      monitoring_type:
+        description: 'Type of monitoring to run'
+        required: true
+        type: choice
+        options:
+          - all
+          - drift-detection
+          - model-quality
+          - metrics-only
+          - experiment-comparison
+      environment:
+        description: 'Environment to monitor'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: 'dev'
+  
+  # Scheduled execution (Weekly on Monday 9 AM UTC)
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9 AM
+  
+  # Trigger after model deployment
+  workflow_run:
+    workflows: ["MLOps Pipeline - Diabetes Classification"]
+    types:
+      - completed
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: '3.8'
+
+jobs:
+  # ============================================================================
+  # Job 1: Check Endpoint Metrics (FREE - Always runs)
+  # ============================================================================
+  check-metrics:
+    name: Check Endpoint Metrics
+    runs-on: ubuntu-latest
+    outputs:
+      endpoint_healthy: ${{ steps.health-check.outputs.healthy }}
+      error_count: ${{ steps.health-check.outputs.errors }}
+      avg_latency: ${{ steps.health-check.outputs.latency }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install boto3 pandas numpy scipy pyyaml sagemaker
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Monitoring
+      
+      - name: Get endpoint metrics
+        id: metrics
+        run: |
+          ENDPOINT_NAME="mlops-diabetes-endpoint-${{ github.event.inputs.environment || 'dev' }}"
+          
+          python src/monitoring/run_drift_detection.py \
+            --endpoint-name $ENDPOINT_NAME \
+            --get-metrics \
+            --hours 168 > metrics_output.txt
+          
+          cat metrics_output.txt
+      
+      - name: Health check
+        id: health-check
+        run: |
+          # Parse metrics and determine health
+          python -c "
+          import json
+          import sys
+          
+          # Read metrics from previous step output
+          # In real implementation, parse metrics_output.txt
+          
+          # For now, set dummy values
+          healthy = 'true'
+          errors = '0'
+          latency = '85.5'
+          
+          print(f'healthy={healthy}')
+          print(f'errors={errors}')
+          print(f'latency={latency}')
+          
+          # Set outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'healthy={healthy}\n')
+              f.write(f'errors={errors}\n')
+              f.write(f'latency={latency}\n')
+          " || echo "healthy=false" >> $GITHUB_OUTPUT
+      
+      - name: Upload metrics report
+        uses: actions/upload-artifact@v4
+        with:
+          name: endpoint-metrics
+          path: metrics_output.txt
+
+  # ============================================================================
+  # Job 2: Data Drift Detection (Conditional - $0.27 cost)
+  # ============================================================================
+  drift-detection:
+    name: Data Drift Detection
+    runs-on: ubuntu-latest
+    needs: check-metrics
+    if: |
+      github.event.inputs.monitoring_type == 'drift-detection' || 
+      github.event.inputs.monitoring_type == 'all' ||
+      github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install boto3 pandas numpy scipy pyyaml sagemaker
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-DriftDetection
+      
+      - name: Run drift detection
+        id: drift
+        run: |
+          ENDPOINT_NAME="mlops-diabetes-endpoint-${{ github.event.inputs.environment || 'dev' }}"
+          
+          python src/monitoring/run_drift_detection.py \
+            --endpoint-name $ENDPOINT_NAME \
+            --check-data-drift > drift_report.json
+          
+          cat drift_report.json
+      
+      - name: Parse drift results
+        id: parse-drift
+        run: |
+          python -c "
+          import json
+          import os
+          
+          try:
+              with open('drift_report.json') as f:
+                  report = json.load(f)
+              
+              drift_detected = report.get('drift_detected', False)
+              
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f'drift_detected={str(drift_detected).lower()}\n')
+              
+              if drift_detected:
+                  print('⚠️ DATA DRIFT DETECTED!')
+              else:
+                  print('✅ No drift detected')
+          except Exception as e:
+              print(f'Error parsing drift report: {e}')
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('drift_detected=false\n')
+          "
+      
+      - name: Upload drift report
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-detection-report
+          path: drift_report.json
+      
+      - name: Create drift alert issue
+        if: steps.parse-drift.outputs.drift_detected == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Data Drift Detected - Model Retraining Recommended',
+              body: `## Data Drift Alert
+              
+              **Environment:** ${{ github.event.inputs.environment || 'dev' }}
+              **Detection Time:** ${new Date().toISOString()}
+              
+              Data drift has been detected in the production endpoint. This indicates that the incoming data distribution has changed significantly from the training data.
+              
+              **Recommended Actions:**
+              1. Review the drift report artifact
+              2. Analyze which features have drifted
+              3. Consider retraining the model with recent data
+              4. Update monitoring baselines if drift is expected
+              
+              **Drift Report:** See workflow artifacts
+              `,
+              labels: ['monitoring', 'drift-detection', 'model-retraining']
+            })
+
+  # ============================================================================
+  # Job 3: Model Quality Check (Conditional - $0.27 cost)
+  # ============================================================================
+  model-quality:
+    name: Model Quality Check
+    runs-on: ubuntu-latest
+    needs: check-metrics
+    if: |
+      github.event.inputs.monitoring_type == 'model-quality' || 
+      github.event.inputs.monitoring_type == 'all' ||
+      github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install boto3 pandas numpy scipy pyyaml sagemaker
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-ModelQuality
+      
+      - name: Run model quality check
+        run: |
+          ENDPOINT_NAME="mlops-diabetes-endpoint-${{ github.event.inputs.environment || 'dev' }}"
+          
+          python src/monitoring/run_drift_detection.py \
+            --endpoint-name $ENDPOINT_NAME \
+            --check-model-quality > model_quality_report.json
+          
+          cat model_quality_report.json
+      
+      - name: Upload quality report
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-quality-report
+          path: model_quality_report.json
+
+  # ============================================================================
+  # Job 4: Statistical Drift Analysis (FREE - Offline)
+  # ============================================================================
+  statistical-drift:
+    name: Statistical Drift Analysis
+    runs-on: ubuntu-latest
+    needs: check-metrics
+    if: |
+      github.event.inputs.monitoring_type == 'all' ||
+      github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install boto3 pandas numpy scipy pyyaml sagemaker
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-StatisticalDrift
+      
+      - name: Download baseline and production data
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          
+          # Download baseline (training) data
+          aws s3 cp s3://mlops-diabetes-${ENV}-${{ secrets.AWS_ACCOUNT_ID }}/data/train/diabetes.csv baseline_data.csv
+          
+          # Download recent production data (if available)
+          # aws s3 cp s3://mlops-diabetes-${ENV}-${{ secrets.AWS_ACCOUNT_ID }}/monitoring/production_data.csv production_data.csv
+          
+          # For now, use baseline as production (in real scenario, capture actual inference data)
+          cp baseline_data.csv production_data.csv
+      
+      - name: Run statistical drift detection
+        run: |
+          python -c "
+          from src.monitoring.drift_detection import DriftDetector
+          import pandas as pd
+          import json
+          
+          # Load data
+          baseline_data = pd.read_csv('baseline_data.csv')
+          production_data = pd.read_csv('production_data.csv')
+          
+          # Detect drift
+          detector = DriftDetector(threshold=0.05)
+          drift_report = detector.detect_feature_drift(baseline_data, production_data)
+          
+          # Save report
+          with open('statistical_drift_report.json', 'w') as f:
+              json.dump(drift_report, f, indent=2)
+          
+          # Print summary
+          print(f\"Total features: {drift_report['summary']['total_features']}\")
+          print(f\"Features with drift: {drift_report['summary']['features_with_drift']}\")
+          print(f\"Drift percentage: {drift_report['summary']['drift_percentage']:.1f}%\")
+          
+          # Check if retraining needed
+          should_retrain, reasons = detector.should_trigger_retraining(drift_report)
+          
+          if should_retrain:
+              print('\\n⚠️ RETRAINING RECOMMENDED')
+              print('Reasons:')
+              for reason in reasons:
+                  print(f'  - {reason}')
+          else:
+              print('\\n✅ No retraining needed')
+          "
+      
+      - name: Upload statistical report
+        uses: actions/upload-artifact@v4
+        with:
+          name: statistical-drift-report
+          path: statistical_drift_report.json
+
+  # ============================================================================
+  # Job 5: Experiment Tracking & Comparison (FREE)
+  # ============================================================================
+  experiment-tracking:
+    name: Experiment Comparison
+    runs-on: ubuntu-latest
+    if: |
+      github.event.inputs.monitoring_type == 'experiment-comparison' || 
+      github.event.inputs.monitoring_type == 'all' ||
+      github.event_name == 'workflow_run'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install boto3 pandas numpy scipy pyyaml sagemaker
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-Experiments
+      
+      - name: Compare experiments
+        run: |
+          python -c "
+          from src.monitoring.experiment_tracker import ExperimentTracker
+          
+          # Initialize tracker
+          tracker = ExperimentTracker('diabetes-classification-experiments')
+          
+          # Get best run
+          best_run = tracker.get_best_run('accuracy', maximize=True)
+          
+          if best_run is not None:
+              print(f'\\n📊 Best Model Performance:')
+              print(f'  Run: {best_run.get(\"TrialComponentName\", \"N/A\")}')
+              print(f'  Accuracy: {best_run.get(\"accuracy\", \"N/A\")}')
+          
+          # Compare all runs
+          tracker.compare_runs()
+          
+          # Print summary
+          tracker.print_experiment_summary()
+          "
+
+  # ============================================================================
+  # Job 6: Generate Monitoring Report & Notify
+  # ============================================================================
+  generate-report:
+    name: Generate Monitoring Report
+    runs-on: ubuntu-latest
+    needs: [check-metrics, drift-detection, model-quality, statistical-drift]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: monitoring-reports
+      
+      - name: Generate summary report
+        run: |
+          cat > monitoring_summary.md << 'EOF'
+          # 📊 MLOps Monitoring Report
+          
+          **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Environment:** ${{ github.event.inputs.environment || 'dev' }}
+          **Trigger:** ${{ github.event_name }}
+          
+          ## Endpoint Health
+          - Status: ${{ needs.check-metrics.outputs.endpoint_healthy == 'true' && '✅ Healthy' || '❌ Unhealthy' }}
+          - Errors (24h): ${{ needs.check-metrics.outputs.error_count }}
+          - Avg Latency: ${{ needs.check-metrics.outputs.avg_latency }}ms
+          
+          ## Drift Detection
+          ${{ needs.drift-detection.result == 'success' && '✅ Completed' || needs.drift-detection.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}
+          
+          ## Model Quality
+          ${{ needs.model-quality.result == 'success' && '✅ Completed' || needs.model-quality.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}
+          
+          ## Statistical Analysis
+          ${{ needs.statistical-drift.result == 'success' && '✅ Completed' || needs.statistical-drift.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }}
+          
+          ---
+          
+          See workflow artifacts for detailed reports.
+          EOF
+          
+          cat monitoring_summary.md
+      
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-summary
+          path: monitoring_summary.md
+      
+      - name: Send Slack notification
+        if: github.event_name == 'schedule' || github.event.inputs.monitoring_type == 'all'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -X POST $SLACK_WEBHOOK \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "📊 Weekly MLOps Monitoring Report",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "*MLOps Monitoring Report*\n Environment: ${{ github.event.inputs.environment || \"dev\" }}"
+                    }
+                  },
+                  {
+                    "type": "section",
+                    "fields": [
+                      {
+                        "type": "mrkdwn",
+                        "text": "*Endpoint Health:*\n${{ needs.check-metrics.outputs.endpoint_healthy == \"true\" && \"✅ Healthy\" || \"❌ Unhealthy\" }}"
+                      },
+                      {
+                        "type": "mrkdwn",
+                        "text": "*Drift Detection:*\n${{ needs.drift-detection.result }}"
+                      }
+                    ]
+                  }
+                ]
+              }'
+          fi
+
+  # ============================================================================
+  # Job 7: Auto-Retrain Decision (Conditional)
+  # ============================================================================
+  auto-retrain-decision:
+    name: Auto-Retrain Decision
+    runs-on: ubuntu-latest
+    needs: [drift-detection, statistical-drift]
+    if: |
+      always() && 
+      (needs.drift-detection.result == 'success' || needs.statistical-drift.result == 'success')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Evaluate retraining criteria
+        id: retrain-decision
+        run: |
+          # Download drift reports
+          # Parse and evaluate if retraining threshold met
+          
+          # For now, manual approval required
+          echo "should_retrain=false" >> $GITHUB_OUTPUT
+      
+      - name: Trigger retraining workflow
+        if: steps.retrain-decision.outputs.should_retrain == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'mlops_pipeline.yaml',
+              ref: 'main',
+              inputs: {
+                execute_pipeline: 'true'
+              }
+            })

@@ -10,6 +10,12 @@ import logging
 import pandas as pd
 import xgboost as xgb
 import joblib
+import sys
+from datetime import datetime
+
+# Add src directory to Python path for imports
+sys.path.append('/opt/ml/code')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -119,6 +125,54 @@ def train(args):
         json.dump(metadata, f, indent=2)
     
     logger.info("Training artifacts saved successfully")
+    
+    # Track experiment with SageMaker Experiments
+    try:
+        from src.monitoring.experiment_tracker import ExperimentTracker
+        
+        logger.info("Logging experiment to SageMaker Experiments...")
+        
+        # Initialize experiment tracker
+        experiment_name = os.environ.get('EXPERIMENT_NAME', 'diabetes-classification-experiments')
+        run_name = f"training-run-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        
+        # Get training job name if available (when running on SageMaker)
+        training_job_name = os.environ.get('TRAINING_JOB_NAME', run_name)
+        
+        tracker = ExperimentTracker(experiment_name=experiment_name, run_name=training_job_name)
+        tracker.start_run()
+        
+        # Log hyperparameters
+        hyperparameters = {
+            'max_depth': args.max_depth,
+            'eta': args.eta,
+            'gamma': args.gamma,
+            'min_child_weight': args.min_child_weight,
+            'subsample': args.subsample,
+            'num_round': num_round,
+            'early_stopping_rounds': early_stopping_rounds if early_stopping_rounds else 0
+        }
+        tracker.log_parameters(hyperparameters)
+        
+        # Log training metrics (final values)
+        final_metrics = {}
+        for eval_set, metrics in evals_result.items():
+            for metric_name, values in metrics.items():
+                final_metrics[f'{eval_set}_{metric_name}'] = values[-1] if values else 0
+        
+        tracker.log_metrics(final_metrics)
+        
+        # Log model artifact (will be available after SageMaker uploads)
+        # The actual S3 URI will be set by SageMaker after training completes
+        if 'SM_MODEL_DIR' in os.environ:
+            tracker.log_artifact(os.environ['SM_MODEL_DIR'], 'model')
+        
+        logger.info(f"✅ Experiment logged successfully: {training_job_name}")
+        
+    except ImportError:
+        logger.warning("ExperimentTracker not available. Skipping experiment logging.")
+    except Exception as e:
+        logger.warning(f"Failed to log experiment: {e}. Continuing with training.")
     
     return bst
 
