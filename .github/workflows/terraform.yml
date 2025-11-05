@@ -58,12 +58,12 @@ jobs:
         working-directory: infrastructure/terraform
       
       - name: Terraform Init
-        run: terraform init -backend=false
+        run: |
+          # Temporarily rename backend config to skip S3 backend validation
+          mv backend.tf backend.tf.bak
+          terraform init
+          mv backend.tf.bak backend.tf
         working-directory: infrastructure/terraform
-        env:
-          AWS_ACCESS_KEY_ID: dummy
-          AWS_SECRET_ACCESS_KEY: dummy
-          AWS_DEFAULT_REGION: us-east-1
       
       - name: Terraform Validate
         run: terraform validate

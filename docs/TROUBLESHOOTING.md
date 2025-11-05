@@ -669,12 +669,29 @@ Error: NoCredentialProviders: no valid providers in chain.
 ```
 
 **Cause:**
-Terraform tries to initialize the S3 backend **before** AWS credentials are configured in the GitHub Actions workflow. The step order matters:
-- ❌ Wrong: Setup Terraform → Init (fails - no credentials) → Configure AWS Credentials
-- ✅ Correct: Setup Terraform → Configure AWS Credentials → Init (succeeds)
+There are two scenarios where this error occurs:
 
-**Solution:**
-Reorder workflow steps to configure AWS credentials **before** running `terraform init`:
+1. **Validate Job Issue**: Even with `terraform init -backend=false`, Terraform still tries to **parse** the backend configuration syntax and requires AWS credentials to be present (even if not used).
+
+2. **Plan/Apply Job Issue**: Terraform tries to initialize the S3 backend **before** AWS credentials are configured in the workflow. The step order matters.
+
+**Solution 1: Fix Validate Job (Add Dummy Credentials)**
+
+For the `validate` job that uses `-backend=false`, provide dummy AWS credentials to satisfy the backend config parser:
+
+```yaml
+- name: Terraform Init
+  run: terraform init -backend=false
+  working-directory: infrastructure/terraform
+  env:
+    AWS_ACCESS_KEY_ID: dummy
+    AWS_SECRET_ACCESS_KEY: dummy
+    AWS_DEFAULT_REGION: us-east-1
+```
+
+**Solution 2: Fix Plan/Apply Jobs (Reorder Steps)**
+
+For `plan` and `apply` jobs, configure AWS credentials **before** running `terraform init`:
 
 ```yaml
 steps:
@@ -702,7 +719,7 @@ steps:
 ```
 
 **Key Points:**
-- The `validate` job uses `terraform init -backend=false` (skips backend, no credentials needed)
+- The `validate` job needs dummy credentials even with `-backend=false` (Terraform parses backend config)
 - The `plan` and `apply` jobs **must** configure AWS credentials before `terraform init`
 - OIDC authentication (role-to-assume) is preferred over access keys
 - For staging/production using access keys, same rule applies: credentials first, then init
