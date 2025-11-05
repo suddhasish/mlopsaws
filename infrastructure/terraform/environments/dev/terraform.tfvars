@@ -51,10 +51,10 @@ enable_guardduty      = false
 
 # Cost Optimization
 enable_auto_shutdown       = false                      # Disabled - Lambda functions not yet created
-create_model_package_group = false                      # Disabled - waiting for SageMaker quota approval (Request ID: 3d8c1063060c49d69c68694f8155a1aeXRl7MRZT)
+create_model_package_group = true                      # Disabled - waiting for SageMaker quota approval (Request ID: 3d8c1063060c49d69c68694f8155a1aeXRl7MRZT)
 auto_shutdown_schedule     = "cron(0 19 ? * MON-FRI *)" # 7 PM weekdays
 auto_startup_schedule      = "cron(0 8 ? * MON-FRI *)"  # 8 AM weekdays
-budget_amount              = 100                        # $100/month budget for dev
+budget_amount              = 60                       # $100/month budget for dev
 budget_alert_thresholds    = [80, 100]                  # Alert at 80% and 100%
 
 # Feature Store - Disabled for dev
