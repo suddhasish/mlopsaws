@@ -30,9 +30,9 @@ output "monitoring_enabled" {
 output "cloudwatch_alarms" {
   description = "CloudWatch alarm names for model monitoring"
   value = var.enable_monitoring ? {
-    model_errors      = try(aws_cloudwatch_metric_alarm.model_invocation_errors[0].alarm_name, null)
-    model_latency     = try(aws_cloudwatch_metric_alarm.model_latency[0].alarm_name, null)
-    invocations_high  = try(aws_cloudwatch_metric_alarm.invocations_high[0].alarm_name, null)
+    model_errors     = try(aws_cloudwatch_metric_alarm.model_invocation_errors[0].alarm_name, null)
+    model_latency    = try(aws_cloudwatch_metric_alarm.model_latency[0].alarm_name, null)
+    invocations_high = try(aws_cloudwatch_metric_alarm.invocations_high[0].alarm_name, null)
   } : {}
 }
 
