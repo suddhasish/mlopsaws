@@ -18,9 +18,22 @@ Last Updated: November 4, 2025
    - Covers AWS, GitHub, Terraform configuration
    - Automated deployment instructions
 
+2. **[MLOPS_LIFECYCLE_GUIDE.md](./MLOPS_LIFECYCLE_GUIDE.md)** 🔄 **UNDERSTAND THE WORKFLOW**
+   - Complete MLOps lifecycle explanation
+   - From code commit to production monitoring
+   - All 6 phases documented
+   - Automation & CI/CD workflows
+
 ---
 
 ## 📖 Core Documentation
+
+### Workflow & Architecture
+
+| Document | Purpose | When to Read |
+|----------|---------|--------------|
+| **[MLOPS_LIFECYCLE_GUIDE.md](./MLOPS_LIFECYCLE_GUIDE.md)** ⭐ | **Complete MLOps workflow** | **Understand how everything works together** |
+| **[DATA_FLOW_ARCHITECTURE.md](./DATA_FLOW_ARCHITECTURE.md)** | Data pipeline architecture | Understanding data flow patterns |
 
 ### Configuration & Setup
 
@@ -42,7 +55,8 @@ Last Updated: November 4, 2025
 |----------|---------|--------------|
 | **[DATA_INGESTION_GUIDE.md](./DATA_INGESTION_GUIDE.md)** | Production data pipelines | Moving from sample to production data |
 | **[TRUST_POLICY_BEST_PRACTICES.md](./TRUST_POLICY_BEST_PRACTICES.md)** | Enterprise security patterns | Organization-based trust policies |
-| **[DATA_FLOW_ARCHITECTURE.md](./DATA_FLOW_ARCHITECTURE.md)** | Data pipeline architecture | Understanding data flow patterns |
+| **[EXPERIMENT_TRACKING_INTEGRATION.md](./EXPERIMENT_TRACKING_INTEGRATION.md)** | Experiment tracking details | How experiments are logged and tracked |
+| **[MONITORING_PIPELINE_GUIDE.md](./MONITORING_PIPELINE_GUIDE.md)** | Monitoring best practices | Setup & cost optimization for monitoring |
 
 ### History & Changes
 
@@ -58,8 +72,9 @@ Last Updated: November 4, 2025
 
 ```
 1. Read: COMPLETE_SETUP_GUIDE.md
-2. Refer to: IAM_SETUP.md (for detailed IAM configuration)
-3. Use: TROUBLESHOOTING.md (if you hit issues)
+2. Understand: MLOPS_LIFECYCLE_GUIDE.md (how it all works)
+3. Refer to: IAM_SETUP.md (for detailed IAM configuration)
+4. Use: TROUBLESHOOTING.md (if you hit issues)
 ```
 
 ### "I hit an error during deployment"
@@ -82,6 +97,14 @@ Last Updated: November 4, 2025
 ```
 1. Read: TRUST_POLICY_BEST_PRACTICES.md
 2. Review: IAM_SETUP.md (trust policy patterns)
+```
+
+### "How does the MLOps workflow work?"
+
+```
+1. Read: MLOPS_LIFECYCLE_GUIDE.md (comprehensive workflow)
+2. Check: EXPERIMENT_TRACKING_INTEGRATION.md (experiment details)
+3. Review: MONITORING_PIPELINE_GUIDE.md (monitoring setup)
 ```
 
 ### "What's the current status?"
