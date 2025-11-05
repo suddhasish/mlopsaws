@@ -6,7 +6,7 @@ Run this script to check for data/model drift without continuous monitoring cost
 import boto3
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import logging
 
