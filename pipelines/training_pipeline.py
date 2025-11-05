@@ -82,6 +82,17 @@ class DiabetesPipeline:
         
         logger.info(f"Region: {self.region}")
         logger.info(f"Bucket: {self.bucket}")
+
+    def _format_tags(self, tags_dict):
+        """Convert a simple dict of tags into AWS SageMaker tag list format
+
+        Example:
+            {"Project": "Diabetes", "Env": "Dev"} ->
+            [{"Key": "Project", "Value": "Diabetes"}, {"Key": "Env", "Value": "Dev"}]
+        """
+        if not tags_dict:
+            return []
+        return [{"Key": str(k), "Value": str(v)} for k, v in tags_dict.items()]
         
     def create_pipeline_parameters(self):
         """Define pipeline parameters"""
@@ -192,9 +203,17 @@ class DiabetesPipeline:
                 'objective': self.config['model']['hyperparameters']['objective'],
                 'eval_metric': self.config['model']['hyperparameters']['eval_metric']
             },
-            output_path=f's3://{self.bucket}/{self.prefix}/models'
+            output_path=f's3://{self.bucket}/{self.prefix}/models',
+            # Managed Spot Training and Checkpointing
+            use_spot_instances=self.config['sagemaker']['training'].get('use_spot_instances', False),
+            max_wait=self.config['sagemaker']['training'].get('max_wait_seconds'),
+            max_run=self.config['sagemaker']['training'].get('max_runtime_seconds'),
+            checkpoint_s3_uri=self.config['sagemaker']['training'].get('checkpoint_s3_uri')
         )
         
+        # Prepare tags for the training job
+        tags_list = self._format_tags(self.config.get('tags', {}))
+
         # Define training step
         step_train = TrainingStep(
             name='TrainModel',
@@ -208,7 +227,8 @@ class DiabetesPipeline:
                     s3_data=step_process.properties.ProcessingOutputConfig.Outputs['validation'].S3Output.S3Uri,
                     content_type='text/csv'
                 )
-            }
+            },
+            tags=tags_list
         )
         
         return step_train
