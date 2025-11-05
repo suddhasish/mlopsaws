@@ -194,10 +194,7 @@ output "quick_reference" {
   
   🔐 IAM Role (for SageMaker):
      ${module.iam.sagemaker_execution_role_arn}
-  
-  🧪 Model Registry:
-     aws sagemaker list-model-packages --model-package-group-name ${module.sagemaker.model_package_group_name}
-  
+  ${module.sagemaker.model_package_group_name != null ? "\n  🧪 Model Registry:\n     aws sagemaker list-model-packages --model-package-group-name ${module.sagemaker.model_package_group_name}\n" : "\n  🧪 Model Registry: (Disabled - waiting for SageMaker quota approval)\n"}
   📊 CloudWatch Logs:
      Training Jobs: ${module.monitoring.training_log_group_name}
      Endpoints:     ${module.monitoring.endpoint_log_group_name}

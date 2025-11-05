@@ -94,8 +94,9 @@ module "networking" {
 module "sagemaker" {
   source = "./modules/sagemaker"
 
-  project_name = var.project_name
-  environment  = var.environment
+  project_name               = var.project_name
+  environment                = var.environment
+  create_model_package_group = var.create_model_package_group
   tags = merge(
     {
       Project     = var.project_name

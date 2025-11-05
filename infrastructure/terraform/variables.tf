@@ -261,6 +261,12 @@ variable "enable_guardduty" {
 # COST OPTIMIZATION VARIABLES
 # =============================================================================
 
+variable "create_model_package_group" {
+  description = "Whether to create SageMaker Model Package Group (requires quota approval if currently 0)"
+  type        = bool
+  default     = true
+}
+
 variable "enable_auto_shutdown" {
   description = "Enable auto-shutdown of dev endpoints after business hours"
   type        = bool

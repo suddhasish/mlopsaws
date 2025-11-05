@@ -17,3 +17,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_model_package_group" {
+  description = "Whether to create SageMaker Model Package Group (requires quota approval if currently 0)"
+  type        = bool
+  default     = true
+}

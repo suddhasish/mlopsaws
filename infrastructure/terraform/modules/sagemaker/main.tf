@@ -6,6 +6,8 @@
 # SageMaker Model Package Group (Model Registry)
 # -----------------------------------------------------------------------------
 resource "aws_sagemaker_model_package_group" "main" {
+  count = var.create_model_package_group ? 1 : 0
+
   model_package_group_name        = "${var.project_name}-model-group-${var.environment}"
   model_package_group_description = "Model registry for ${var.project_name} ${var.environment} - Diabetes classification models"
 
