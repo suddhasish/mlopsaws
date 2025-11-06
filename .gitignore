@@ -81,6 +81,11 @@ htmlcov/
 config/local_config.yaml
 config/*_secrets.yaml
 
+# GitHub secrets (DO NOT COMMIT!)
+github-secrets-DO-NOT-COMMIT.txt
+*secrets*.txt
+github-oidc-trust-policy.json
+
 # Terraform EXE
 *.zip
 *.exe
