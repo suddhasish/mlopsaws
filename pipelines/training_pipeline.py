@@ -76,12 +76,11 @@ class DiabetesPipeline:
         self.role = self.config["sagemaker"]["role"]
         self.bucket = self.config["s3"]["bucket_name"]
         self.prefix = self.config["s3"]["prefix"]
-        
+
         # Create SageMaker session with explicit default bucket
         boto_session = boto3.Session(region_name=self.region)
         self.sagemaker_session = sagemaker.Session(
-            boto_session=boto_session,
-            default_bucket=self.bucket
+            boto_session=boto_session, default_bucket=self.bucket
         )
 
     def _merge_configs(self, base, override):
