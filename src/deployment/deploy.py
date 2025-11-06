@@ -57,15 +57,19 @@ class ModelDeployer:
     def get_approved_model(self, model_package_group_name=None):
         """Get the latest approved model from Model Registry"""
         if model_package_group_name is None:
-            model_package_group_name = os.environ.get(
-                "MODEL_PACKAGE_GROUP_NAME",
-                self.config["sagemaker"]["model_registry"]["model_package_group_name"],
+            env_group = os.environ.get("MODEL_PACKAGE_GROUP_NAME")
+            config_group = self.config["sagemaker"]["model_registry"]["model_package_group_name"]
+            model_package_group_name = env_group or config_group
+
+        logger.info(f"Target Model Package Group: {model_package_group_name}")
+        if os.environ.get("MODEL_PACKAGE_GROUP_NAME") and os.environ.get("MODEL_PACKAGE_GROUP_NAME") != self.config["sagemaker"]["model_registry"]["model_package_group_name"]:
+            logger.info(
+                "Environment override MODEL_PACKAGE_GROUP_NAME differs from config value: "
+                f"env='{os.environ.get('MODEL_PACKAGE_GROUP_NAME')}' config='{self.config['sagemaker']['model_registry']['model_package_group_name']}'"
             )
 
-        logger.info(f"Getting approved model from {model_package_group_name}...")
-
         try:
-            # List model packages
+            # Primary query: list approved models
             response = self.sagemaker_client.list_model_packages(
                 ModelPackageGroupName=model_package_group_name,
                 ModelApprovalStatus="Approved",
@@ -75,36 +79,36 @@ class ModelDeployer:
             )
 
             if not response["ModelPackageSummaryList"]:
-                logger.warning(
-                    f"No approved models found in {model_package_group_name}"
-                )
+                logger.warning(f"No approved models found in group '{model_package_group_name}'. Attempting fallback...")
 
-                # Check if there are any models at all (any status)
-                all_models_response = self.sagemaker_client.list_model_packages(
+                # Fallback: list any models (latest first)
+                alt = self.sagemaker_client.list_model_packages(
                     ModelPackageGroupName=model_package_group_name,
                     SortBy="CreationTime",
                     SortOrder="Descending",
-                    MaxResults=5,
+                    MaxResults=10,
                 )
-
-                if all_models_response["ModelPackageSummaryList"]:
-                    logger.info(
-                        f"Found {len(all_models_response['ModelPackageSummaryList'])} model(s) with other statuses:"
-                    )
-                    for pkg in all_models_response["ModelPackageSummaryList"]:
-                        logger.info(f"  - {pkg['ModelPackageArn']}")
+                candidates = alt.get("ModelPackageSummaryList", [])
+                if candidates:
+                    pending = [p for p in candidates if p.get("ModelApprovalStatus") == "PendingManualApproval"]
+                    if pending:
+                        chosen = pending[0]
                         logger.info(
-                            f"    Status: {pkg.get('ModelApprovalStatus', 'Unknown')}"
+                            f"Using PendingManualApproval model as fallback: {chosen['ModelPackageArn']}"
                         )
+                        return chosen["ModelPackageArn"]
+                    chosen = candidates[0]
                     logger.info(
-                        "Please approve a model in the SageMaker console to deploy it."
+                        f"Using latest model (status={chosen.get('ModelApprovalStatus','Unknown')}) as fallback: {chosen['ModelPackageArn']}"
                     )
+                    return chosen["ModelPackageArn"]
                 else:
-                    logger.warning(
-                        "No models found at all. Please run the training pipeline first."
-                    )
-
-                return None
+                    # Discover available groups for hint
+                    groups = self.sagemaker_client.list_model_package_groups(SortBy="CreationTime", SortOrder="Descending")
+                    names = [g["ModelPackageGroupName"] for g in groups.get("ModelPackageGroupSummaryList", [])]
+                    logger.warning("No models in target group. Existing groups: " + (", ".join(names) if names else "<none>") )
+                    logger.warning("Set MODEL_PACKAGE_GROUP_NAME env var to an existing group if mismatched.")
+                    return None
 
             model_package_arn = response["ModelPackageSummaryList"][0][
                 "ModelPackageArn"

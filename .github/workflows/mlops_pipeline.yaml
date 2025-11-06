@@ -261,7 +261,7 @@ jobs:
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
           SAGEMAKER_ROLE_ARN: ${{ secrets.SAGEMAKER_EXECUTION_ROLE }}
-          MODEL_PACKAGE_GROUP_NAME: diabetes-classifier-model-group
+          MODEL_PACKAGE_GROUP_NAME: mlops-diabetes-model-group-dev
           ENDPOINT_INSTANCE_TYPE: ml.m5.xlarge
         run: |
           python src/deployment/deploy.py --config config/config.yaml --endpoint-name diabetes-classifier-prod --enable-autoscaling

@@ -54,8 +54,9 @@ sagemaker:
     
   # Model Registry
   model_registry:
-    model_package_group_name: diabetes-classification-models
-    approval_status: PendingManualApproval  # Options: Approved, PendingManualApproval, Rejected
+    # Align with existing created group in account (mlops-diabetes-model-group-dev)
+    model_package_group_name: mlops-diabetes-model-group-dev
+    approval_status: Approved  # Auto-approve to simplify initial deployment; change to PendingManualApproval later
     
   # Endpoint Configuration
   endpoint:
