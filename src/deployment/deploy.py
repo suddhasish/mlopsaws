@@ -42,11 +42,13 @@ class ModelDeployer:
 
         # Override sensitive values from environment variables
         self.region = os.environ.get("AWS_REGION", self.config["aws"]["region"])
-        self.role = os.environ.get("SAGEMAKER_ROLE_ARN", self.config["sagemaker"]["role"])
-        
+        self.role = os.environ.get(
+            "SAGEMAKER_ROLE_ARN", self.config["sagemaker"]["role"]
+        )
+
         logger.info(f"Using AWS Region: {self.region}")
         logger.info(f"Using SageMaker Role: {self.role}")
-        
+
         self.sagemaker_session = sagemaker.Session(
             boto_session=boto3.Session(region_name=self.region)
         )
@@ -57,7 +59,7 @@ class ModelDeployer:
         if model_package_group_name is None:
             model_package_group_name = os.environ.get(
                 "MODEL_PACKAGE_GROUP_NAME",
-                self.config["sagemaker"]["model_registry"]["model_package_group_name"]
+                self.config["sagemaker"]["model_registry"]["model_package_group_name"],
             )
 
         logger.info(f"Getting approved model from {model_package_group_name}...")
@@ -73,8 +75,10 @@ class ModelDeployer:
             )
 
             if not response["ModelPackageSummaryList"]:
-                logger.warning(f"No approved models found in {model_package_group_name}")
-                
+                logger.warning(
+                    f"No approved models found in {model_package_group_name}"
+                )
+
                 # Check if there are any models at all (any status)
                 all_models_response = self.sagemaker_client.list_model_packages(
                     ModelPackageGroupName=model_package_group_name,
@@ -82,16 +86,24 @@ class ModelDeployer:
                     SortOrder="Descending",
                     MaxResults=5,
                 )
-                
+
                 if all_models_response["ModelPackageSummaryList"]:
-                    logger.info(f"Found {len(all_models_response['ModelPackageSummaryList'])} model(s) with other statuses:")
+                    logger.info(
+                        f"Found {len(all_models_response['ModelPackageSummaryList'])} model(s) with other statuses:"
+                    )
                     for pkg in all_models_response["ModelPackageSummaryList"]:
                         logger.info(f"  - {pkg['ModelPackageArn']}")
-                        logger.info(f"    Status: {pkg.get('ModelApprovalStatus', 'Unknown')}")
-                    logger.info("Please approve a model in the SageMaker console to deploy it.")
+                        logger.info(
+                            f"    Status: {pkg.get('ModelApprovalStatus', 'Unknown')}"
+                        )
+                    logger.info(
+                        "Please approve a model in the SageMaker console to deploy it."
+                    )
                 else:
-                    logger.warning("No models found at all. Please run the training pipeline first.")
-                
+                    logger.warning(
+                        "No models found at all. Please run the training pipeline first."
+                    )
+
                 return None
 
             model_package_arn = response["ModelPackageSummaryList"][0][
@@ -102,8 +114,12 @@ class ModelDeployer:
             return model_package_arn
 
         except self.sagemaker_client.exceptions.ResourceNotFound:
-            logger.error(f"Model package group '{model_package_group_name}' does not exist.")
-            logger.info("Please run the training pipeline first to create the model package group.")
+            logger.error(
+                f"Model package group '{model_package_group_name}' does not exist."
+            )
+            logger.info(
+                "Please run the training pipeline first to create the model package group."
+            )
             return None
         except Exception as e:
             logger.error(f"Error getting approved model: {str(e)}")
@@ -113,7 +129,7 @@ class ModelDeployer:
         """Create SageMaker model from model package"""
         if model_package_arn is None:
             model_package_arn = self.get_approved_model()
-        
+
         # Check if we have a valid model package ARN
         if model_package_arn is None:
             error_msg = (
@@ -150,6 +166,7 @@ class ModelDeployer:
         except Exception as e:
             logger.error(f"Error creating model: {str(e)}")
             raise
+
     def deploy_model(
         self, model=None, endpoint_name=None, instance_type=None, instance_count=1
     ):
@@ -157,7 +174,7 @@ class ModelDeployer:
         if instance_type is None:
             instance_type = os.environ.get(
                 "ENDPOINT_INSTANCE_TYPE",
-                self.config["sagemaker"]["endpoint"]["instance_type"]
+                self.config["sagemaker"]["endpoint"]["instance_type"],
             )
             instance_type = self.config["sagemaker"]["endpoint"]["instance_type"]
 
@@ -211,7 +228,7 @@ class ModelDeployer:
                         "InitialInstanceCount": 1,
                         "InstanceType": os.environ.get(
                             "ENDPOINT_INSTANCE_TYPE",
-                            self.config["sagemaker"]["endpoint"]["instance_type"]
+                            self.config["sagemaker"]["endpoint"]["instance_type"],
                         ),
                     }
                 ],

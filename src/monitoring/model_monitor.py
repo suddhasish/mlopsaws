@@ -42,10 +42,12 @@ class ModelMonitor:
 
         # Override sensitive values from environment variables
         self.region = os.environ.get("AWS_REGION", self.config["aws"]["region"])
-        self.role = os.environ.get("SAGEMAKER_ROLE_ARN", self.config["sagemaker"]["role"])
+        self.role = os.environ.get(
+            "SAGEMAKER_ROLE_ARN", self.config["sagemaker"]["role"]
+        )
         self.bucket = os.environ.get("S3_BUCKET", self.config["s3"]["bucket_name"])
         self.prefix = self.config["s3"]["prefix"]
-        
+
         logger.info(f"Using AWS Region: {self.region}")
         logger.info(f"Using S3 Bucket: {self.bucket}")
 
