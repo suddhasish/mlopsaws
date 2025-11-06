@@ -12,7 +12,7 @@ from sagemaker.workflow.steps import ProcessingStep, TrainingStep, CreateModelSt
 from sagemaker.workflow.step_collections import RegisterModel
 from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.condition_step import ConditionStep
-from sagemaker.workflow.functions import JsonGet
+from sagemaker.workflow.functions import JsonGet, Join
 from sagemaker.workflow.parameters import (
     ParameterInteger,
     ParameterFloat,
@@ -348,10 +348,21 @@ class DiabetesPipeline:
         """Create model registration step"""
         logger.info("Creating model registration step...")
 
+        # Use Join to concatenate S3 URI with pipeline properties
+        evaluation_s3_uri = Join(
+            on="/",
+            values=[
+                step_eval.properties.ProcessingOutputConfig.Outputs[
+                    "evaluation"
+                ].S3Output.S3Uri,
+                "evaluation_results.json",
+            ],
+        )
+
         # Model metrics
         model_metrics = ModelMetrics(
             model_statistics=MetricsSource(
-                s3_uri=f"{step_eval.properties.ProcessingOutputConfig.Outputs['evaluation'].S3Output.S3Uri}/evaluation_results.json",
+                s3_uri=evaluation_s3_uri,
                 content_type="application/json",
             )
         )
