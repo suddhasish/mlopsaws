@@ -73,7 +73,25 @@ class ModelDeployer:
             )
 
             if not response["ModelPackageSummaryList"]:
-                logger.warning("No approved models found")
+                logger.warning(f"No approved models found in {model_package_group_name}")
+                
+                # Check if there are any models at all (any status)
+                all_models_response = self.sagemaker_client.list_model_packages(
+                    ModelPackageGroupName=model_package_group_name,
+                    SortBy="CreationTime",
+                    SortOrder="Descending",
+                    MaxResults=5,
+                )
+                
+                if all_models_response["ModelPackageSummaryList"]:
+                    logger.info(f"Found {len(all_models_response['ModelPackageSummaryList'])} model(s) with other statuses:")
+                    for pkg in all_models_response["ModelPackageSummaryList"]:
+                        logger.info(f"  - {pkg['ModelPackageArn']}")
+                        logger.info(f"    Status: {pkg.get('ModelApprovalStatus', 'Unknown')}")
+                    logger.info("Please approve a model in the SageMaker console to deploy it.")
+                else:
+                    logger.warning("No models found at all. Please run the training pipeline first.")
+                
                 return None
 
             model_package_arn = response["ModelPackageSummaryList"][0][
@@ -83,6 +101,10 @@ class ModelDeployer:
 
             return model_package_arn
 
+        except self.sagemaker_client.exceptions.ResourceNotFound:
+            logger.error(f"Model package group '{model_package_group_name}' does not exist.")
+            logger.info("Please run the training pipeline first to create the model package group.")
+            return None
         except Exception as e:
             logger.error(f"Error getting approved model: {str(e)}")
             raise
@@ -91,6 +113,18 @@ class ModelDeployer:
         """Create SageMaker model from model package"""
         if model_package_arn is None:
             model_package_arn = self.get_approved_model()
+        
+        # Check if we have a valid model package ARN
+        if model_package_arn is None:
+            error_msg = (
+                "No approved model found in Model Registry. "
+                "Please ensure you have:\n"
+                "1. Executed the SageMaker pipeline\n"
+                "2. Approved a model in the Model Registry\n"
+                f"Model Package Group: {os.environ.get('MODEL_PACKAGE_GROUP_NAME', self.config['sagemaker']['model_registry']['model_package_group_name'])}"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         if model_name is None:
             import datetime
