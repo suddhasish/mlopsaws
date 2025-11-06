@@ -4,14 +4,14 @@
 dev:
   aws:
     region: us-east-1
-    account_id: "YOUR_DEV_ACCOUNT_ID"
+    account_id: "891807086260"
   
   s3:
-    bucket_name: mlops-diabetes-dev
-    prefix: diabetes-project-dev
+    bucket_name: mlops-diabetes-dev-891807086260
+    prefix: diabetes-project
   
   sagemaker:
-    role: "arn:aws:iam::YOUR_DEV_ACCOUNT_ID:role/SageMakerExecutionRole-Dev"
+    role: "arn:aws:iam::891807086260:role/service-role/AmazonSageMaker-ExecutionRole-20251026T145759"
     
     processing:
       instance_type: ml.t3.medium  # Smaller/cheaper for dev
