@@ -86,10 +86,6 @@ class DiabetesPipeline:
                 self._merge_configs(base[key], value)
             else:
                 base[key] = value
-        self.prefix = self.config["s3"]["prefix"]
-
-        logger.info(f"Region: {self.region}")
-        logger.info(f"Bucket: {self.bucket}")
 
     def _format_tags(self, tags_dict):
         """Convert a simple dict of tags into AWS SageMaker tag list format
