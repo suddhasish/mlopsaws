@@ -203,31 +203,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Update configuration
-        env:
-          SAGEMAKER_ROLE: ${{ secrets.SAGEMAKER_EXECUTION_ROLE }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
-          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        run: |
-          # Update config.yaml with secrets
-          python -c "
-          import yaml
-          with open('config/config.yaml', 'r') as f:
-              config = yaml.safe_load(f)
-          config['aws']['account_id'] = '$AWS_ACCOUNT_ID'
-          config['sagemaker']['role'] = '$SAGEMAKER_ROLE'
-          config['s3']['bucket_name'] = '$S3_BUCKET'
-          config['sagemaker']['training']['checkpoint_s3_uri'] = f's3://{config[\"s3\"][\"bucket_name\"]}/checkpoints'
-          with open('config/config.yaml', 'w') as f:
-              yaml.dump(config, f)
-          "
-      
       - name: Create/Update SageMaker Pipeline
+        env:
+          SAGEMAKER_EXECUTION_ROLE: ${{ secrets.SAGEMAKER_EXECUTION_ROLE }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
           python pipelines/training_pipeline.py --config config/config.yaml
       
       - name: Execute Pipeline
         if: github.event.inputs.execute_pipeline == 'true' || github.ref == 'refs/heads/main'
+        env:
+          SAGEMAKER_EXECUTION_ROLE: ${{ secrets.SAGEMAKER_EXECUTION_ROLE }}
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
           python pipelines/training_pipeline.py --config config/config.yaml --execute
       

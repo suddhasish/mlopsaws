@@ -4,14 +4,14 @@
 dev:
   aws:
     region: us-east-1
-    account_id: "891807086260"
+    account_id: "PLACEHOLDER_ACCOUNT_ID"  # Will be set via AWS_ACCOUNT_ID secret
   
   s3:
-    bucket_name: mlops-diabetes-dev-891807086260
+    bucket_name: PLACEHOLDER_BUCKET_NAME  # Will be set via S3_BUCKET_NAME secret
     prefix: diabetes-project
   
   sagemaker:
-    role: "arn:aws:iam::891807086260:role/service-role/AmazonSageMaker-ExecutionRole-20251026T145759"
+    role: "PLACEHOLDER_SAGEMAKER_ROLE"  # Will be set via SAGEMAKER_EXECUTION_ROLE secret
     
     processing:
       instance_type: ml.t3.medium  # Smaller/cheaper for dev
@@ -54,14 +54,14 @@ dev:
 staging:
   aws:
     region: us-east-1
-    account_id: "YOUR_STAGING_ACCOUNT_ID"
+    account_id: "PLACEHOLDER_ACCOUNT_ID"  # Will be set via AWS_ACCOUNT_ID secret
   
   s3:
-    bucket_name: mlops-diabetes-staging
+    bucket_name: PLACEHOLDER_BUCKET_NAME  # Will be set via S3_BUCKET_NAME secret
     prefix: diabetes-project-staging
   
   sagemaker:
-    role: "arn:aws:iam::YOUR_STAGING_ACCOUNT_ID:role/SageMakerExecutionRole-Staging"
+    role: "PLACEHOLDER_SAGEMAKER_ROLE"  # Will be set via SAGEMAKER_EXECUTION_ROLE secret
     
     processing:
       instance_type: ml.m5.xlarge
@@ -107,14 +107,14 @@ staging:
 production:
   aws:
     region: us-east-1
-    account_id: "YOUR_PROD_ACCOUNT_ID"
+    account_id: "PLACEHOLDER_ACCOUNT_ID"  # Will be set via AWS_ACCOUNT_ID secret
   
   s3:
-    bucket_name: mlops-diabetes-production
+    bucket_name: PLACEHOLDER_BUCKET_NAME  # Will be set via S3_BUCKET_NAME secret
     prefix: diabetes-project-prod
   
   sagemaker:
-    role: "arn:aws:iam::YOUR_PROD_ACCOUNT_ID:role/SageMakerExecutionRole-Prod"
+    role: "PLACEHOLDER_SAGEMAKER_ROLE"  # Will be set via SAGEMAKER_EXECUTION_ROLE secret
     
     processing:
       instance_type: ml.m5.2xlarge  # Larger for production
@@ -159,8 +159,8 @@ production:
   
   alerts:
     enabled: true
-    sns_topic_arn: "arn:aws:sns:us-east-1:YOUR_PROD_ACCOUNT_ID:mlops-prod-alerts"
-    pagerduty_integration: true
+    sns_topic_arn: "PLACEHOLDER_SNS_TOPIC"  # Will be set via SNS_TOPIC_ARN secret (if using alerts)
+    pagerduty_integration: false
   
   tags:
     Environment: Production

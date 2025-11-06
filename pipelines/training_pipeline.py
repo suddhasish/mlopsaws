@@ -73,17 +73,28 @@ class DiabetesPipeline:
 
         # Initialize SageMaker session
         self.region = self.config["aws"]["region"]
-        self.role = self.config["sagemaker"]["role"]
-        self.bucket = self.config["s3"]["bucket_name"]
+        
+        # Use environment variables (from GitHub Secrets) if available, otherwise use config
+        self.role = os.getenv("SAGEMAKER_EXECUTION_ROLE") or self.config["sagemaker"]["role"]
+        self.bucket = os.getenv("S3_BUCKET_NAME") or self.config["s3"]["bucket_name"]
+        account_id = os.getenv("AWS_ACCOUNT_ID") or self.config["aws"]["account_id"]
+        
+        # Override config with environment variables
+        self.config["aws"]["account_id"] = account_id
+        self.config["sagemaker"]["role"] = self.role
+        self.config["s3"]["bucket_name"] = self.bucket
+        
         self.prefix = self.config["s3"]["prefix"]
-
+        
         # Create SageMaker session with explicit default bucket
         boto_session = boto3.Session(region_name=self.region)
         self.sagemaker_session = sagemaker.Session(
             boto_session=boto_session, default_bucket=self.bucket
         )
-
-    def _merge_configs(self, base, override):
+        
+        logger.info(f"Using AWS Account: {account_id}")
+        logger.info(f"Using S3 Bucket: {self.bucket}")
+        logger.info(f"Using SageMaker Role: {self.role}")    def _merge_configs(self, base, override):
         """Recursively merge override config into base config"""
         for key, value in override.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
