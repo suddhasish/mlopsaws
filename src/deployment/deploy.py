@@ -8,6 +8,7 @@ import json
 import boto3
 import sagemaker
 from sagemaker.model import Model
+from sagemaker.model_package import ModelPackage
 from sagemaker.predictor import Predictor
 from sagemaker.serializers import CSVSerializer
 from sagemaker.deserializers import JSONDeserializer
@@ -85,18 +86,19 @@ class ModelDeployer:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             model_name = f"diabetes-model-{timestamp}"
 
-        logger.info(f"Creating model: {model_name}")
+        logger.info(f"Creating model from package: {model_package_arn}")
+        logger.info(f"Model name: {model_name}")
 
         try:
-            # Create model from model package
-            model = Model(
-                model_data=model_package_arn,
+            # Create model package (for deploying from Model Registry)
+            model = ModelPackage(
                 role=self.role,
+                model_package_arn=model_package_arn,
                 sagemaker_session=self.sagemaker_session,
                 name=model_name,
             )
 
-            logger.info(f"Model {model_name} created successfully")
+            logger.info(f"Model package {model_name} created successfully")
             return model
 
         except Exception as e:
