@@ -78,6 +78,7 @@ class DiabetesPipeline:
             boto_session=boto3.Session(region_name=self.region)
         )
         self.bucket = self.config["s3"]["bucket_name"]
+        self.prefix = self.config["s3"]["prefix"]
 
     def _merge_configs(self, base, override):
         """Recursively merge override config into base config"""
