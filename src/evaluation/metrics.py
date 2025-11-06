@@ -26,13 +26,13 @@ def business_metric_cost(y_true, y_pred, fp_cost=100, fn_cost=500):
         fn_cost: Cost of false negative
 
     Returns:
-        Total business cost
+        Total business cost (as Python int)
     """
     from sklearn.metrics import confusion_matrix
 
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
 
-    total_cost = (fp * fp_cost) + (fn * fn_cost)
+    total_cost = int((fp * fp_cost) + (fn * fn_cost))
 
     logger.info(
         f"Business Cost - FP: {fp} (${fp*fp_cost}), FN: {fn} (${fn*fn_cost}), Total: ${total_cost}"
