@@ -219,10 +219,8 @@ class DiabetesPipeline:
             checkpoint_s3_uri=self.config["sagemaker"]["training"].get(
                 "checkpoint_s3_uri"
             ),
+            tags=self._format_tags(self.config.get("tags", {})),
         )
-
-        # Prepare tags for the training job
-        tags_list = self._format_tags(self.config.get("tags", {}))
 
         # Define training step
         step_train = TrainingStep(
@@ -242,7 +240,6 @@ class DiabetesPipeline:
                     content_type="text/csv",
                 ),
             },
-            tags=tags_list,
         )
 
         return step_train
