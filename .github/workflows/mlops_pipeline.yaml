@@ -170,7 +170,7 @@ jobs:
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
         run: |
-          aws s3 cp data/raw/diabetes.csv s3://$S3_BUCKET/diabetes-project/data/raw/diabetes.csv
+          aws s3 cp data/raw/diabetes.csv s3://$S3_BUCKET/diabetes-project/data/raw/diabetes.csv --sse AES256
 
   # Job 5: Execute SageMaker Pipeline
   sagemaker-pipeline:
