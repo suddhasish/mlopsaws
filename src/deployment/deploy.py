@@ -98,22 +98,27 @@ class ModelDeployer:
                 )
                 candidates = alt.get("ModelPackageSummaryList", [])
                 if candidates:
+                    allow_unapproved = os.environ.get("ALLOW_UNAPPROVED_MODEL") == "1"
                     pending = [
                         p
                         for p in candidates
                         if p.get("ModelApprovalStatus") == "PendingManualApproval"
                     ]
-                    if pending:
+                    if pending and allow_unapproved:
                         chosen = pending[0]
                         logger.info(
-                            f"Using PendingManualApproval model as fallback: {chosen['ModelPackageArn']}"
+                            f"ALLOW_UNAPPROVED_MODEL=1 -> using PendingManualApproval model: {chosen['ModelPackageArn']}"
                         )
                         return chosen["ModelPackageArn"]
-                    chosen = candidates[0]
+                    if allow_unapproved:
+                        chosen = candidates[0]
+                        logger.info(
+                            f"ALLOW_UNAPPROVED_MODEL=1 -> using latest model (status={chosen.get('ModelApprovalStatus','Unknown')}): {chosen['ModelPackageArn']}"
+                        )
+                        return chosen["ModelPackageArn"]
                     logger.info(
-                        f"Using latest model (status={chosen.get('ModelApprovalStatus','Unknown')}) as fallback: {chosen['ModelPackageArn']}"
+                        "Unapproved models exist but ALLOW_UNAPPROVED_MODEL is not set. Not selecting fallback."
                     )
-                    return chosen["ModelPackageArn"]
                 else:
                     # Discover available groups for hint
                     groups = self.sagemaker_client.list_model_package_groups(
@@ -423,10 +428,30 @@ def main():
     parser.add_argument(
         "--test", action="store_true", help="Test the endpoint after deployment"
     )
+    parser.add_argument(
+        "--model-package-group",
+        type=str,
+        help="Override Model Package Group name (otherwise uses env MODEL_PACKAGE_GROUP_NAME or config)",
+    )
+    parser.add_argument(
+        "--allow-unapproved",
+        action="store_true",
+        help="Allow deploying latest PendingManualApproval or latest model if no approved model is found",
+    )
 
     args = parser.parse_args()
 
     # Deploy model
+    if args.model_package_group:
+        os.environ["MODEL_PACKAGE_GROUP_NAME"] = args.model_package_group
+        logger.info(
+            f"Override MODEL_PACKAGE_GROUP_NAME via CLI: {args.model_package_group}"
+        )
+
+    if args.allow_unapproved:
+        os.environ["ALLOW_UNAPPROVED_MODEL"] = "1"
+        logger.info("ALLOW_UNAPPROVED_MODEL enabled via CLI")
+
     deployer = ModelDeployer(config_path=args.config)
 
     # Get approved model and deploy

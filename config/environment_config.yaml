@@ -34,7 +34,8 @@ dev:
       schedule_cron: "cron(0 */12 * * ? *)"  # Every 12 hours
     
     model_registry:
-      model_package_group_name: diabetes-classification-models-dev
+      # Standardized naming aligned with existing group
+      model_package_group_name: mlops-diabetes-model-group-dev
       approval_status: Approved  # Auto-approve in dev
   
   evaluation:
@@ -87,7 +88,7 @@ staging:
       schedule_cron: "cron(0 */6 * * ? *)"  # Every 6 hours
     
     model_registry:
-      model_package_group_name: diabetes-classification-models-staging
+      model_package_group_name: mlops-diabetes-model-group-staging
       approval_status: PendingManualApproval  # Manual approval before prod
   
   evaluation:
@@ -141,7 +142,7 @@ production:
       baseline_dataset_samples: 5000  # Larger baseline
     
     model_registry:
-      model_package_group_name: diabetes-classification-models-prod
+      model_package_group_name: mlops-diabetes-model-group-prod
       approval_status: PendingManualApproval  # MUST be manually approved
   
   evaluation:
