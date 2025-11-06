@@ -58,11 +58,17 @@ class ModelDeployer:
         """Get the latest approved model from Model Registry"""
         if model_package_group_name is None:
             env_group = os.environ.get("MODEL_PACKAGE_GROUP_NAME")
-            config_group = self.config["sagemaker"]["model_registry"]["model_package_group_name"]
+            config_group = self.config["sagemaker"]["model_registry"][
+                "model_package_group_name"
+            ]
             model_package_group_name = env_group or config_group
 
         logger.info(f"Target Model Package Group: {model_package_group_name}")
-        if os.environ.get("MODEL_PACKAGE_GROUP_NAME") and os.environ.get("MODEL_PACKAGE_GROUP_NAME") != self.config["sagemaker"]["model_registry"]["model_package_group_name"]:
+        if (
+            os.environ.get("MODEL_PACKAGE_GROUP_NAME")
+            and os.environ.get("MODEL_PACKAGE_GROUP_NAME")
+            != self.config["sagemaker"]["model_registry"]["model_package_group_name"]
+        ):
             logger.info(
                 "Environment override MODEL_PACKAGE_GROUP_NAME differs from config value: "
                 f"env='{os.environ.get('MODEL_PACKAGE_GROUP_NAME')}' config='{self.config['sagemaker']['model_registry']['model_package_group_name']}'"
@@ -79,7 +85,9 @@ class ModelDeployer:
             )
 
             if not response["ModelPackageSummaryList"]:
-                logger.warning(f"No approved models found in group '{model_package_group_name}'. Attempting fallback...")
+                logger.warning(
+                    f"No approved models found in group '{model_package_group_name}'. Attempting fallback..."
+                )
 
                 # Fallback: list any models (latest first)
                 alt = self.sagemaker_client.list_model_packages(
@@ -90,7 +98,11 @@ class ModelDeployer:
                 )
                 candidates = alt.get("ModelPackageSummaryList", [])
                 if candidates:
-                    pending = [p for p in candidates if p.get("ModelApprovalStatus") == "PendingManualApproval"]
+                    pending = [
+                        p
+                        for p in candidates
+                        if p.get("ModelApprovalStatus") == "PendingManualApproval"
+                    ]
                     if pending:
                         chosen = pending[0]
                         logger.info(
@@ -104,10 +116,20 @@ class ModelDeployer:
                     return chosen["ModelPackageArn"]
                 else:
                     # Discover available groups for hint
-                    groups = self.sagemaker_client.list_model_package_groups(SortBy="CreationTime", SortOrder="Descending")
-                    names = [g["ModelPackageGroupName"] for g in groups.get("ModelPackageGroupSummaryList", [])]
-                    logger.warning("No models in target group. Existing groups: " + (", ".join(names) if names else "<none>") )
-                    logger.warning("Set MODEL_PACKAGE_GROUP_NAME env var to an existing group if mismatched.")
+                    groups = self.sagemaker_client.list_model_package_groups(
+                        SortBy="CreationTime", SortOrder="Descending"
+                    )
+                    names = [
+                        g["ModelPackageGroupName"]
+                        for g in groups.get("ModelPackageGroupSummaryList", [])
+                    ]
+                    logger.warning(
+                        "No models in target group. Existing groups: "
+                        + (", ".join(names) if names else "<none>")
+                    )
+                    logger.warning(
+                        "Set MODEL_PACKAGE_GROUP_NAME env var to an existing group if mismatched."
+                    )
                     return None
 
             model_package_arn = response["ModelPackageSummaryList"][0][
