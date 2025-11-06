@@ -72,3 +72,9 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "github_actions_role_arn" {
+  description = "ARN of the GitHub Actions IAM role (optional)"
+  type        = string
+  default     = null
+}

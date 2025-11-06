@@ -2,16 +2,17 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "AllowSageMakerAccess",
+            "Sid": "AllowSageMakerExecutionRole",
             "Effect": "Allow",
             "Principal": {
-                "AWS": "arn:aws:iam::891807086260:role/mlops-diabetes-sagemaker-execution-dev"
+                "AWS": "arn:aws:iam::891807086260:role/service-role/AmazonSageMaker-ExecutionRole-20251026T145759"
             },
             "Action": [
                 "s3:GetObject",
                 "s3:PutObject",
                 "s3:DeleteObject",
-                "s3:ListBucket"
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
             ],
             "Resource": [
                 "arn:aws:s3:::mlops-diabetes-dev-891807086260",
@@ -28,24 +29,13 @@
                 "s3:GetObject",
                 "s3:PutObject",
                 "s3:DeleteObject",
-                "s3:ListBucket"
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
             ],
             "Resource": [
                 "arn:aws:s3:::mlops-diabetes-dev-891807086260",
                 "arn:aws:s3:::mlops-diabetes-dev-891807086260/*"
             ]
-        },
-        {
-            "Sid": "DenyUnencryptedObjectUploads",
-            "Effect": "Deny",
-            "Principal": "*",
-            "Action": "s3:PutObject",
-            "Resource": "arn:aws:s3:::mlops-diabetes-dev-891807086260/*",
-            "Condition": {
-                "StringNotEquals": {
-                    "s3:x-amz-server-side-encryption": "AES256"
-                }
-            }
         },
         {
             "Sid": "DenyInsecureTransport",

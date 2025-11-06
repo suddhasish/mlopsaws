@@ -119,58 +119,71 @@ resource "aws_s3_bucket_lifecycle_configuration" "ml_data" {
   }
 }
 
-# Bucket policy - grant SageMaker access
+# Bucket policy - grant SageMaker and GitHub Actions access
 resource "aws_s3_bucket_policy" "ml_data" {
   bucket = aws_s3_bucket.ml_data.id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowSageMakerAccess"
-        Effect = "Allow"
-        Principal = {
-          AWS = var.sagemaker_execution_role_arn
+    Statement = concat(
+      [
+        {
+          Sid    = "AllowSageMakerAccess"
+          Effect = "Allow"
+          Principal = {
+            AWS = var.sagemaker_execution_role_arn
+          }
+          Action = [
+            "s3:GetObject",
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "s3:ListBucket",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            aws_s3_bucket.ml_data.arn,
+            "${aws_s3_bucket.ml_data.arn}/*"
+          ]
         }
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.ml_data.arn,
-          "${aws_s3_bucket.ml_data.arn}/*"
-        ]
-      },
-      {
-        Sid       = "DenyUnencryptedObjectUploads"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.ml_data.arn}/*"
-        Condition = {
-          StringNotEquals = {
-            "s3:x-amz-server-side-encryption" = var.kms_key_id != null ? "aws:kms" : "AES256"
+      ],
+      var.github_actions_role_arn != null ? [
+        {
+          Sid    = "AllowGitHubActionsAccess"
+          Effect = "Allow"
+          Principal = {
+            AWS = var.github_actions_role_arn
+          }
+          Action = [
+            "s3:GetObject",
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "s3:ListBucket",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            aws_s3_bucket.ml_data.arn,
+            "${aws_s3_bucket.ml_data.arn}/*"
+          ]
+        }
+      ] : [],
+      [
+        {
+          Sid       = "DenyInsecureTransport"
+          Effect    = "Deny"
+          Principal = "*"
+          Action    = "s3:*"
+          Resource = [
+            aws_s3_bucket.ml_data.arn,
+            "${aws_s3_bucket.ml_data.arn}/*"
+          ]
+          Condition = {
+            Bool = {
+              "aws:SecureTransport" = "false"
+            }
           }
         }
-      },
-      {
-        Sid       = "DenyInsecureTransport"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
-        Resource = [
-          aws_s3_bucket.ml_data.arn,
-          "${aws_s3_bucket.ml_data.arn}/*"
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
-      }
-    ]
+      ]
+    )
   })
 }
 

@@ -28,3 +28,25 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# =============================================================================
+# GitHub Actions OIDC Variables
+# =============================================================================
+
+variable "enable_github_oidc" {
+  description = "Enable GitHub Actions OIDC integration"
+  type        = bool
+  default     = false
+}
+
+variable "github_org" {
+  description = "GitHub organization or username"
+  type        = string
+  default     = ""
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = ""
+}

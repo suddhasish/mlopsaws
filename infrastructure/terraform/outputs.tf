@@ -41,6 +41,36 @@ output "data_scientist_role_arn" {
 }
 
 # =============================================================================
+# GITHUB ACTIONS OIDC OUTPUTS
+# =============================================================================
+
+output "github_actions_role_arn" {
+  description = "ARN of the GitHub Actions IAM role (for AWS_ROLE_ARN secret)"
+  value       = var.enable_github_oidc ? module.iam.github_actions_role_arn : null
+}
+
+output "github_actions_role_name" {
+  description = "Name of the GitHub Actions IAM role"
+  value       = var.enable_github_oidc ? module.iam.github_actions_role_name : null
+}
+
+output "oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC provider"
+  value       = var.enable_github_oidc ? module.iam.oidc_provider_arn : null
+}
+
+# Output formatted for GitHub Secrets
+output "github_secrets" {
+  description = "Values to configure as GitHub Secrets"
+  value = var.enable_github_oidc ? {
+    AWS_ROLE_ARN             = module.iam.github_actions_role_arn
+    SAGEMAKER_EXECUTION_ROLE = module.iam.sagemaker_execution_role_arn
+    S3_BUCKET_NAME           = module.s3.bucket_name
+    AWS_ACCOUNT_ID           = data.aws_caller_identity.current.account_id
+  } : null
+}
+
+# =============================================================================
 # NETWORKING OUTPUTS
 # =============================================================================
 

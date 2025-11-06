@@ -13,6 +13,7 @@ module "s3" {
   enable_versioning            = var.enable_s3_versioning
   kms_key_id                   = var.enable_kms_encryption ? module.kms[0].kms_key_id : null
   sagemaker_execution_role_arn = module.iam.sagemaker_execution_role_arn
+  github_actions_role_arn      = var.enable_github_oidc ? module.iam.github_actions_role_arn : null
   glacier_transition_days      = var.s3_lifecycle_glacier_days
   expiration_days              = var.s3_lifecycle_expiration_days
   enable_access_logging        = var.environment == "production" ? true : false
@@ -27,10 +28,13 @@ module "s3" {
 module "iam" {
   source = "./modules/iam"
 
-  project_name  = var.project_name
-  environment   = var.environment
-  s3_bucket_arn = module.s3.bucket_arn
-  kms_key_arn   = var.enable_kms_encryption ? module.kms[0].kms_key_arn : null
+  project_name       = var.project_name
+  environment        = var.environment
+  s3_bucket_arn      = module.s3.bucket_arn
+  kms_key_arn        = var.enable_kms_encryption ? module.kms[0].kms_key_arn : null
+  enable_github_oidc = var.enable_github_oidc
+  github_org         = var.github_org
+  github_repo        = var.github_repo
   tags = merge(
     {
       Project     = var.project_name

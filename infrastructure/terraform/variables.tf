@@ -41,6 +41,28 @@ variable "repository_url" {
 }
 
 # =============================================================================
+# GITHUB ACTIONS OIDC VARIABLES
+# =============================================================================
+
+variable "enable_github_oidc" {
+  description = "Enable GitHub Actions OIDC integration for CI/CD"
+  type        = bool
+  default     = false
+}
+
+variable "github_org" {
+  description = "GitHub organization or username"
+  type        = string
+  default     = "suddhasish"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name"
+  type        = string
+  default     = "mlopsaws"
+}
+
+# =============================================================================
 # NETWORKING VARIABLES
 # =============================================================================
 
