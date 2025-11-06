@@ -1,6 +1,12 @@
 """
 Model Deployment Module
 Deploy trained models to SageMaker endpoints with auto-scaling
+
+Environment Variables (override config.yaml):
+- AWS_REGION: AWS region for deployment
+- SAGEMAKER_ROLE_ARN: IAM role ARN for SageMaker
+- MODEL_PACKAGE_GROUP_NAME: Model Registry group name
+- ENDPOINT_INSTANCE_TYPE: EC2 instance type for endpoint
 """
 
 import os
@@ -34,8 +40,13 @@ class ModelDeployer:
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.region = self.config["aws"]["region"]
-        self.role = self.config["sagemaker"]["role"]
+        # Override sensitive values from environment variables
+        self.region = os.environ.get("AWS_REGION", self.config["aws"]["region"])
+        self.role = os.environ.get("SAGEMAKER_ROLE_ARN", self.config["sagemaker"]["role"])
+        
+        logger.info(f"Using AWS Region: {self.region}")
+        logger.info(f"Using SageMaker Role: {self.role}")
+        
         self.sagemaker_session = sagemaker.Session(
             boto_session=boto3.Session(region_name=self.region)
         )
@@ -44,9 +55,10 @@ class ModelDeployer:
     def get_approved_model(self, model_package_group_name=None):
         """Get the latest approved model from Model Registry"""
         if model_package_group_name is None:
-            model_package_group_name = self.config["sagemaker"]["model_registry"][
-                "model_package_group_name"
-            ]
+            model_package_group_name = os.environ.get(
+                "MODEL_PACKAGE_GROUP_NAME",
+                self.config["sagemaker"]["model_registry"]["model_package_group_name"]
+            )
 
         logger.info(f"Getting approved model from {model_package_group_name}...")
 
@@ -104,12 +116,15 @@ class ModelDeployer:
         except Exception as e:
             logger.error(f"Error creating model: {str(e)}")
             raise
-
     def deploy_model(
         self, model=None, endpoint_name=None, instance_type=None, instance_count=1
     ):
         """Deploy model to SageMaker endpoint"""
         if instance_type is None:
+            instance_type = os.environ.get(
+                "ENDPOINT_INSTANCE_TYPE",
+                self.config["sagemaker"]["endpoint"]["instance_type"]
+            )
             instance_type = self.config["sagemaker"]["endpoint"]["instance_type"]
 
         if endpoint_name is None:
@@ -160,9 +175,10 @@ class ModelDeployer:
                         "VariantName": "AllTraffic",
                         "ModelName": new_model_name,
                         "InitialInstanceCount": 1,
-                        "InstanceType": self.config["sagemaker"]["endpoint"][
-                            "instance_type"
-                        ],
+                        "InstanceType": os.environ.get(
+                            "ENDPOINT_INSTANCE_TYPE",
+                            self.config["sagemaker"]["endpoint"]["instance_type"]
+                        ),
                     }
                 ],
             )

@@ -1,8 +1,14 @@
 """
 Model Monitor Setup
 Configure SageMaker Model Monitor for data quality and model quality monitoring
+
+Environment Variables (override config.yaml):
+- AWS_REGION: AWS region for monitoring
+- SAGEMAKER_ROLE_ARN: IAM role ARN for SageMaker
+- S3_BUCKET: S3 bucket for monitoring outputs
 """
 
+import os
 import boto3
 import sagemaker
 from sagemaker.model_monitor import (
@@ -34,10 +40,14 @@ class ModelMonitor:
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
 
-        self.region = self.config["aws"]["region"]
-        self.role = self.config["sagemaker"]["role"]
-        self.bucket = self.config["s3"]["bucket_name"]
+        # Override sensitive values from environment variables
+        self.region = os.environ.get("AWS_REGION", self.config["aws"]["region"])
+        self.role = os.environ.get("SAGEMAKER_ROLE_ARN", self.config["sagemaker"]["role"])
+        self.bucket = os.environ.get("S3_BUCKET", self.config["s3"]["bucket_name"])
         self.prefix = self.config["s3"]["prefix"]
+        
+        logger.info(f"Using AWS Region: {self.region}")
+        logger.info(f"Using S3 Bucket: {self.bucket}")
 
         self.sagemaker_session = sagemaker.Session(
             boto_session=boto3.Session(region_name=self.region)
