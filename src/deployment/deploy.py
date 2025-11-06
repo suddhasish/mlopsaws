@@ -8,7 +8,7 @@ import json
 import boto3
 import sagemaker
 from sagemaker.model import Model
-from sagemaker.model_package import ModelPackage
+from sagemaker import ModelPackage
 from sagemaker.predictor import Predictor
 from sagemaker.serializers import CSVSerializer
 from sagemaker.deserializers import JSONDeserializer
