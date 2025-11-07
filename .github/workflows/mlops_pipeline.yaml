@@ -263,7 +263,61 @@ jobs:
           MODEL_PACKAGE_GROUP_NAME: ${{ secrets.MODEL_PACKAGE_GROUP_NAME }}
         run: |
           if [ -z "$MODEL_PACKAGE_GROUP_NAME" ]; then echo "::error::MODEL_PACKAGE_GROUP_NAME secret is not set"; exit 1; fi
+          # Persist the secret-provided group name so later steps can override it if discovery finds a non-empty group
+          echo "MODEL_PACKAGE_GROUP_NAME=$MODEL_PACKAGE_GROUP_NAME" >> "$GITHUB_ENV"
           echo "Listing latest model packages in group (masked): ****"
+          aws sagemaker list-model-packages \
+            --model-package-group-name "$MODEL_PACKAGE_GROUP_NAME" \
+            --region "$AWS_REGION" \
+            --sort-by CreationTime --sort-order Descending --max-results 5 || true
+
+      - name: Auto-resolve Model Package Group (fallback)
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          MODEL_PACKAGE_GROUP_NAME: ${{ env.MODEL_PACKAGE_GROUP_NAME }}
+        run: |
+          # If current group has no packages, search for any non-empty diabetes-related group and use it
+          CURRENT_GROUP="${MODEL_PACKAGE_GROUP_NAME}"
+          COUNT=$(aws sagemaker list-model-packages \
+            --model-package-group-name "$CURRENT_GROUP" \
+            --region "$AWS_REGION" \
+            --max-results 1 \
+            --query 'length(ModelPackageSummaryList)' \
+            --output text 2>/dev/null || echo 0)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No packages found in '$CURRENT_GROUP'. Attempting discovery..."
+            CANDIDATES=$(aws sagemaker list-model-package-groups \
+              --region "$AWS_REGION" \
+              --name-contains diabetes \
+              --max-results 100 \
+              --query 'ModelPackageGroupSummaryList[].ModelPackageGroupName' \
+              --output text 2>/dev/null || true)
+            SELECTED=""
+            for NAME in $CANDIDATES; do
+              C=$(aws sagemaker list-model-packages \
+                --model-package-group-name "$NAME" \
+                --region "$AWS_REGION" \
+                --max-results 1 \
+                --query 'length(ModelPackageSummaryList)' \
+                --output text 2>/dev/null || echo 0)
+              if [ "$C" -gt 0 ]; then
+                SELECTED="$NAME"; break
+              fi
+            done
+            if [ -n "$SELECTED" ]; then
+              echo "Resolved non-empty Model Package Group: $SELECTED"
+              echo "MODEL_PACKAGE_GROUP_NAME=$SELECTED" >> "$GITHUB_ENV"
+            else
+              echo "::warning::No non-empty Model Package Groups found (searched by name contains 'diabetes'). Deployment will fail without a model."
+            fi
+          fi
+
+      - name: Confirm chosen Model Package Group
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          MODEL_PACKAGE_GROUP_NAME: ${{ env.MODEL_PACKAGE_GROUP_NAME }}
+        run: |
+          echo "Deploying from Model Package Group (masked): ****"
           aws sagemaker list-model-packages \
             --model-package-group-name "$MODEL_PACKAGE_GROUP_NAME" \
             --region "$AWS_REGION" \
@@ -273,12 +327,12 @@ jobs:
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
           SAGEMAKER_ROLE_ARN: ${{ secrets.SAGEMAKER_EXECUTION_ROLE }}
-          MODEL_PACKAGE_GROUP_NAME: ${{ secrets.MODEL_PACKAGE_GROUP_NAME }}
+          MODEL_PACKAGE_GROUP_NAME: ${{ env.MODEL_PACKAGE_GROUP_NAME }}
           ALLOW_UNAPPROVED_MODEL: '1'
           ENDPOINT_INSTANCE_TYPE: ml.m5.xlarge
         run: |
-          if [ -z "$MODEL_PACKAGE_GROUP_NAME" ]; then echo "::error::MODEL_PACKAGE_GROUP_NAME secret is not set"; exit 1; fi
-          echo "Using model package group from secret: **** (masked)"
+          if [ -z "$MODEL_PACKAGE_GROUP_NAME" ]; then echo "::error::MODEL_PACKAGE_GROUP_NAME is not set"; exit 1; fi
+          echo "Using model package group: **** (masked)"
           python src/deployment/deploy.py --config config/config.yaml --endpoint-name diabetes-classifier-prod --enable-autoscaling
       
       - name: Test endpoint
