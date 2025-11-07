@@ -220,10 +220,45 @@ jobs:
         run: |
           python pipelines/training_pipeline.py --config config/config.yaml --execute
       
-      - name: Wait for pipeline completion
+      - name: Wait for SageMaker pipeline completion
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          PIPELINE_NAME: diabetes-classification-pipeline
+          CHECK_INTERVAL: '60'
+          TIMEOUT_MINUTES: '90'
         run: |
-          echo "Pipeline execution started. Monitor in SageMaker Console."
-          # Add pipeline status checking logic here if needed
+          echo "Waiting for pipeline '$PIPELINE_NAME' to complete..."
+          START=$(date +%s)
+          TIMEOUT=$(( TIMEOUT_MINUTES * 60 ))
+          while true; do
+            # Get latest execution for the pipeline
+            EXEC_ARN=$(aws sagemaker list-pipeline-executions \
+              --pipeline-name "$PIPELINE_NAME" \
+              --region "$AWS_REGION" \
+              --max-results 1 \
+              --query 'PipelineExecutionSummaries[0].PipelineExecutionArn' \
+              --output text)
+            STATUS=$(aws sagemaker describe-pipeline-execution \
+              --pipeline-execution-arn "$EXEC_ARN" \
+              --region "$AWS_REGION" \
+              --query 'PipelineExecutionStatus' \
+              --output text)
+            echo "Current status: $STATUS (ARN: $EXEC_ARN)"
+            if [ "$STATUS" = "Succeeded" ]; then
+              echo "Pipeline execution succeeded."
+              break
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Stopped" ]; then
+              echo "::error::Pipeline execution ended with status: $STATUS"
+              exit 1
+            fi
+            NOW=$(date +%s)
+            ELAPSED=$(( NOW - START ))
+            if [ "$ELAPSED" -gt "$TIMEOUT" ]; then
+              echo "::error::Timeout waiting for pipeline to complete after ${TIMEOUT_MINUTES} minutes."
+              exit 1
+            fi
+            sleep "$CHECK_INTERVAL"
+          done
 
   # Job 6: Deploy Model (Manual Approval)
   deploy-model:
