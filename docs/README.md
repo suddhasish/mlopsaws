@@ -199,6 +199,73 @@ COMPLETE_SETUP_GUIDE.md (Main Entry Point)
 
 ---
 
+## 🗺️ End-to-End Architecture Diagram (Mermaid)
+
+Below is a complete AWS MLOps pipeline architecture using Mermaid syntax. Copy into any Mermaid-compatible editor to visualize.
+
+```mermaid
+flowchart TD
+    subgraph Dev["Developer & Source"]
+        A[Developer]
+        B[GitHub Repo]
+        A --> B
+    end
+
+    subgraph CI["CI/CD Orchestration"]
+        C[GitHub Actions Workflow]
+        B --> C
+    end
+
+    subgraph Data["Data Storage"]
+        D[S3 Bucket (Raw Data)]
+        E[S3 Bucket (Processed Data & Artifacts)]
+    end
+
+    subgraph SageMaker["SageMaker Pipeline"]
+        F[Processing Job (SKLearnProcessor)]
+        G[Training Job (XGBoost)]
+        H[Evaluation Job]
+        I[Model Registry]
+        J[Endpoint]
+        K[Model Monitor]
+    end
+
+    subgraph Monitoring["Monitoring & Security"]
+        L[CloudWatch]
+        M[IAM Roles]
+    end
+
+    %% Flow
+    C --> F
+    F --> D
+    F --> E
+    C --> G
+    G --> E
+    G --> I
+    C --> H
+    H --> E
+    H --> I
+    I --> J
+    J --> L
+    J --> K
+    K --> L
+    C --> M
+
+    %% Labels
+    classDef aws fill:#f7f7f7,stroke:#232f3e,stroke-width:2px;
+    class D,E,F,G,H,I,J,K,L,M aws;
+```
+
+---
+
+**This diagram covers:**
+- Source control, CI/CD, S3 buckets, SageMaker steps, Model Registry, Endpoint, Monitoring, IAM roles
+- End-to-end flow from code push to real-time inference and monitoring
+
+For more details or customizations, see the architecture guides in this documentation.
+
+---
+
 **Maintained by:** MLOps Team  
 **Version:** 5.0 Professional  
 **Status:** ✅ Production Ready
