@@ -220,13 +220,13 @@ class DiabetesPipeline:
             framework_version="1.5-1",
             base_job_name="diabetes-training",
             sagemaker_session=self.sagemaker_session,
-            hyperparameters={
-                "max_depth": parameters["max_depth"],
-                "eta": parameters["eta"],
-                "num_round": parameters["num_round"],
-                "objective": self.config["model"]["hyperparameters"]["objective"],
-                "eval_metric": self.config["model"]["hyperparameters"]["eval_metric"],
-            },
+                hyperparameters={
+                    "max-depth": parameters["max_depth"],
+                    "eta": parameters["eta"],
+                    "num-round": parameters["num_round"],
+                    "objective": self.config["model"]["hyperparameters"]["objective"],
+                    "eval-metric": self.config["model"]["hyperparameters"]["eval_metric"],
+                },
             output_path=f"s3://{self.bucket}/{self.prefix}/models",
             # Managed Spot Training and Checkpointing
             use_spot_instances=self.config["sagemaker"]["training"].get(

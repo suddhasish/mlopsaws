@@ -14,7 +14,7 @@ dev:
     role: "PLACEHOLDER_SAGEMAKER_ROLE"  # Will be set via SAGEMAKER_EXECUTION_ROLE secret
     
     processing:
-      instance_type: ml.t3.medium  # Smaller/cheaper for dev
+      instance_type: ml.m5.xlarge  # Use available quota instance type
       instance_count: 1
     
     training:
