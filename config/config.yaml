@@ -45,12 +45,41 @@ sagemaker:
     max_wait_seconds: 7200
     checkpoint_s3_uri: s3://mlops-diabetes-dev-891807086260/checkpoints
     
-  # Hyperparameter Tuning Configuration
+  # Hyperparameter Tuning Configuration (Pattern B - Conditional Tuning)
+  # Best Practice: Enable only when optimizing hyperparameters, not for regular runs
   tuning:
-    enabled: false
-    max_jobs: 10
-    max_parallel_jobs: 2
+    enabled: false  # Set to true to run hyperparameter tuning instead of standard training
+    
+    # Tuning Phase (affects search ranges)
+    # - "exploration": Wide ranges for initial discovery (recommended first)
+    # - "optimization": Narrow ranges around known good values
+    phase: exploration
+    
+    # Tuning Strategy
+    # - "Bayesian": Smart exploration (best for 10-100 jobs)
+    # - "Random": Simple baseline (good for <10 jobs)
+    # - "Grid": Exhaustive search (expensive, only for few discrete params)
     strategy: Bayesian
+    
+    # Job Configuration
+    # Conservative (dev): max_jobs=5-10, max_parallel_jobs=1
+    # Balanced (prod): max_jobs=15-20, max_parallel_jobs=2-3
+    # Aggressive (research): max_jobs=30-50, max_parallel_jobs=5
+    max_jobs: 15
+    max_parallel_jobs: 2
+    
+    # Cost Estimation (per tuning run):
+    # 15 jobs × 5 min × $0.269/hr (ml.m5.xlarge) ≈ $0.34
+    # 20 jobs × 5 min × $0.269/hr (ml.m5.xlarge) ≈ $0.45
+    # 50 jobs × 5 min × $0.269/hr (ml.m5.xlarge) ≈ $1.12
+    
+    # Best Practice Workflow:
+    # 1. Set enabled=true, phase=exploration, run pipeline
+    # 2. Check results in SageMaker Console
+    # 3. Update config/config.yaml model.hyperparameters with best values
+    # 4. Set enabled=false for regular CI/CD runs
+    # 5. Optionally: Set phase=optimization for fine-tuning
+    # 6. Re-tune quarterly or when data/features change
     
   # Model Registry
   model_registry:

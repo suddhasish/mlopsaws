@@ -34,6 +34,7 @@ Last Updated: November 4, 2025
 |----------|---------|--------------|
 | **[MLOPS_LIFECYCLE_GUIDE.md](./MLOPS_LIFECYCLE_GUIDE.md)** ⭐ | **Complete MLOps workflow** | **Understand how everything works together** |
 | **[DATA_FLOW_ARCHITECTURE.md](./DATA_FLOW_ARCHITECTURE.md)** | Data pipeline architecture | Understanding data flow patterns |
+| **[HYPERPARAMETER_TUNING_GUIDE.md](./HYPERPARAMETER_TUNING_GUIDE.md)** 🔧 | **Hyperparameter tuning best practices** | **Optimizing model performance** |
 
 ### Configuration & Setup
 

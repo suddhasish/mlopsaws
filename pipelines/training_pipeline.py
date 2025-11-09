@@ -208,18 +208,19 @@ class DiabetesPipeline:
 
         return step_process
 
-    def create_training_step(self, parameters, step_process):
-        """Create model training step"""
-        logger.info("Creating training step...")
-
-        # XGBoost estimator
+    def create_xgboost_estimator(self, parameters, base_job_name="diabetes-training"):
+        """
+        Create XGBoost estimator (reusable for both training and tuning)
+        """
+        from src.training.hyperparameters import HyperparameterConfig
+        
         xgb_estimator = XGBoost(
             entry_point="src/training/train.py",
             role=self.role,
             instance_type=parameters["training_instance_type"],
             instance_count=1,
             framework_version="1.5-1",
-            base_job_name="diabetes-training",
+            base_job_name=base_job_name,
             sagemaker_session=self.sagemaker_session,
             hyperparameters={
                 "max-depth": parameters["max_depth"],
@@ -227,6 +228,7 @@ class DiabetesPipeline:
                 "num-round": parameters["num_round"],
                 "objective": self.config["model"]["hyperparameters"]["objective"],
                 "eval-metric": self.config["model"]["hyperparameters"]["eval_metric"],
+                "early-stopping-rounds": self.config["model"]["hyperparameters"].get("early_stopping_rounds", 10),
             },
             output_path=f"s3://{self.bucket}/{self.prefix}/models",
             # Managed Spot Training and Checkpointing
@@ -238,8 +240,18 @@ class DiabetesPipeline:
             checkpoint_s3_uri=self.config["sagemaker"]["training"].get(
                 "checkpoint_s3_uri"
             ),
+            # Metric definitions for tuning
+            metric_definitions=HyperparameterConfig.get_metric_definitions(),
             tags=self._format_tags(self.config.get("tags", {})),
         )
+        
+        return xgb_estimator
+
+    def create_training_step(self, parameters, step_process):
+        """Create model training step (standard training with fixed hyperparameters)"""
+        logger.info("Creating training step...")
+
+        xgb_estimator = self.create_xgboost_estimator(parameters)
 
         # Define training step
         step_train = TrainingStep(
@@ -262,15 +274,133 @@ class DiabetesPipeline:
         )
 
         return step_train
+    
+    def create_tuning_step(self, parameters, step_process):
+        """
+        Create hyperparameter tuning step
+        
+        Best Practice: This runs when tuning is enabled in config
+        After tuning completes, update config.yaml with best hyperparameters
+        """
+        logger.info("=" * 80)
+        logger.info("Creating HYPERPARAMETER TUNING step")
+        logger.info("=" * 80)
+        
+        from sagemaker.tuner import HyperparameterTuner
+        from src.training.hyperparameters import HyperparameterConfig
+        
+        tuning_config = self.config["sagemaker"]["tuning"]
+        
+        # Create estimator for tuning (without fixed hyperparameters that will be tuned)
+        xgb_estimator = XGBoost(
+            entry_point="src/training/train.py",
+            role=self.role,
+            instance_type=parameters["training_instance_type"],
+            instance_count=1,
+            framework_version="1.5-1",
+            base_job_name="diabetes-tuning",
+            sagemaker_session=self.sagemaker_session,
+            hyperparameters={
+                # Fixed hyperparameters (not tuned)
+                "objective": self.config["model"]["hyperparameters"]["objective"],
+                "eval-metric": self.config["model"]["hyperparameters"]["eval_metric"],
+                "early-stopping-rounds": self.config["model"]["hyperparameters"].get("early_stopping_rounds", 10),
+                "num-round": parameters["num_round"],
+            },
+            output_path=f"s3://{self.bucket}/{self.prefix}/tuning",
+            use_spot_instances=self.config["sagemaker"]["training"].get(
+                "use_spot_instances", False
+            ),
+            max_wait=self.config["sagemaker"]["training"].get("max_wait_seconds"),
+            max_run=self.config["sagemaker"]["training"].get("max_runtime_seconds"),
+            metric_definitions=HyperparameterConfig.get_metric_definitions(),
+            tags=self._format_tags(self.config.get("tags", {})),
+        )
+        
+        # Get hyperparameter ranges
+        phase = tuning_config.get("phase", "exploration")
+        hyperparameter_ranges = HyperparameterConfig.get_hyperparameter_ranges(phase)
+        
+        # Get objective metric
+        objective_metric = HyperparameterConfig.get_objective_metric()
+        
+        # Create tuner
+        tuner = HyperparameterTuner(
+            estimator=xgb_estimator,
+            objective_metric_name=objective_metric["Name"],
+            hyperparameter_ranges=hyperparameter_ranges,
+            metric_definitions=HyperparameterConfig.get_metric_definitions(),
+            max_jobs=tuning_config.get("max_jobs", 10),
+            max_parallel_jobs=tuning_config.get("max_parallel_jobs", 2),
+            strategy=tuning_config.get("strategy", "Bayesian"),
+            objective_type="Maximize",
+            early_stopping_type="Auto",  # Best practice: enable early stopping
+        )
+        
+        logger.info(f"Tuning Configuration:")
+        logger.info(f"  - Phase: {phase}")
+        logger.info(f"  - Strategy: {tuning_config.get('strategy', 'Bayesian')}")
+        logger.info(f"  - Max jobs: {tuning_config.get('max_jobs', 10)}")
+        logger.info(f"  - Parallel jobs: {tuning_config.get('max_parallel_jobs', 2)}")
+        logger.info(f"  - Early stopping: Enabled")
+        logger.info(f"  - Objective: {objective_metric['Name']} (Maximize)")
+        logger.info(f"  - Parameters to tune: {list(hyperparameter_ranges.keys())}")
+        logger.info("=" * 80)
+        logger.info("⚠️  ACTION REQUIRED AFTER TUNING:")
+        logger.info("   1. Check tuning job results in SageMaker Console")
+        logger.info("   2. Update config.yaml with best hyperparameters")
+        logger.info("   3. Set tuning.enabled=false for regular runs")
+        logger.info("=" * 80)
+        
+        # Create tuning step
+        from sagemaker.workflow.steps import TuningStep
+        
+        step_tuning = TuningStep(
+            name="TuneHyperparameters",
+            tuner=tuner,
+            inputs={
+                "train": TrainingInput(
+                    s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
+                        "train"
+                    ].S3Output.S3Uri,
+                    content_type="text/csv",
+                ),
+                "validation": TrainingInput(
+                    s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
+                        "validation"
+                    ].S3Output.S3Uri,
+                    content_type="text/csv",
+                ),
+            },
+        )
+        
+        return step_tuning
 
     def create_evaluation_step(self, step_train, step_process):
-        """Create model evaluation step"""
+        """
+        Create model evaluation step
+        
+        Note: Works with both training and tuning steps
+        - For TrainingStep: Uses step_train.properties.ModelArtifacts.S3ModelArtifacts
+        - For TuningStep: Uses best model from tuning job automatically
+        """
         logger.info("Creating evaluation step...")
+
+        # Get XGBoost image URI using SageMaker SDK (handles ECR permissions correctly)
+        from sagemaker import image_uris
+        xgboost_image_uri = image_uris.retrieve(
+            framework="xgboost",
+            region=self.region,
+            version="1.5-1",
+            image_scope="training"  # Use training image which has all dependencies
+        )
+        
+        logger.info(f"Using XGBoost image: {xgboost_image_uri}")
 
         # Use ScriptProcessor with XGBoost container image
         # XGBoost container has both xgboost and sklearn preinstalled
         xgb_processor = ScriptProcessor(
-            image_uri=f"763104351884.dkr.ecr.{self.region}.amazonaws.com/sagemaker-xgboost:1.5-1",
+            image_uri=xgboost_image_uri,
             role=self.role,
             instance_type="ml.m5.xlarge",
             instance_count=1,
@@ -286,7 +416,8 @@ class DiabetesPipeline:
             path="evaluation_results.json",
         )
 
-        # Define evaluation step - xgboost container has both xgboost and sklearn
+        # Define evaluation step - works for both training and tuning
+        # For tuning, automatically evaluates the best model
         step_eval = ProcessingStep(
             name="EvaluateModel",
             processor=xgb_processor,
@@ -465,7 +596,13 @@ class DiabetesPipeline:
         return step_cond
 
     def create_pipeline(self):
-        """Create complete pipeline"""
+        """
+        Create complete pipeline with conditional hyperparameter tuning
+        
+        Best Practice Pattern B (Conditional Tuning):
+        - When tuning.enabled=true: Runs hyperparameter tuning
+        - When tuning.enabled=false: Uses fixed hyperparameters from config
+        """
         logger.info("=" * 50)
         logger.info("Creating SageMaker Pipeline")
         logger.info("=" * 50)
@@ -476,8 +613,24 @@ class DiabetesPipeline:
         # Create preprocessing step
         step_process = self.create_preprocessing_step(parameters)
 
-        # Create training step
-        step_train = self.create_training_step(parameters, step_process)
+        # ============================================================
+        # CONDITIONAL TUNING LOGIC (Pattern B - Best Practice)
+        # ============================================================
+        tuning_enabled = self.config["sagemaker"]["tuning"].get("enabled", False)
+        
+        if tuning_enabled:
+            logger.info("🔧 HYPERPARAMETER TUNING ENABLED")
+            logger.info("   Pipeline will search for optimal hyperparameters")
+            
+            # Create tuning step (replaces training step)
+            step_train = self.create_tuning_step(parameters, step_process)
+            
+        else:
+            logger.info("📊 STANDARD TRAINING MODE")
+            logger.info("   Using fixed hyperparameters from config")
+            
+            # Create standard training step
+            step_train = self.create_training_step(parameters, step_process)
 
         # Create evaluation step
         step_eval, evaluation_report = self.create_evaluation_step(
@@ -510,6 +663,7 @@ class DiabetesPipeline:
         logger.info(
             f"Pipeline '{pipeline.name}' created successfully for environment: {self.environment}"
         )
+        logger.info(f"Tuning mode: {'ENABLED' if tuning_enabled else 'DISABLED'}")
         logger.info("Pipeline includes experiment tracking to SageMaker Experiments")
 
         return pipeline
