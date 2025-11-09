@@ -74,10 +74,10 @@ class HyperparameterConfig:
     def get_hyperparameter_ranges(phase="exploration"):
         """
         Get hyperparameter ranges for SageMaker Hyperparameter Tuning
-        
+
         Args:
             phase: "exploration" for wide ranges, "optimization" for narrow ranges
-        
+
         Best Practice: Start with exploration phase, then narrow based on results
         Priority: Focus on high-impact parameters (max_depth, eta) first
         """
@@ -93,11 +93,9 @@ class HyperparameterConfig:
                 # High-impact parameters (tune these first)
                 "max_depth": IntegerParameter(3, 12),
                 "eta": ContinuousParameter(0.01, 0.5),
-                
                 # Regularization parameters
                 "gamma": ContinuousParameter(0, 5),
                 "min_child_weight": IntegerParameter(1, 10),
-                
                 # Sampling parameters
                 "subsample": ContinuousParameter(0.5, 1.0),
                 "colsample_bytree": ContinuousParameter(0.5, 1.0),
@@ -120,7 +118,7 @@ class HyperparameterConfig:
     def get_objective_metric():
         """
         Get objective metric configuration for hyperparameter tuning
-        
+
         Best Practice: Use AUC for imbalanced classification (diabetes dataset)
         Alternative: Use 'validation:aucpr' for extreme imbalance
         """
@@ -130,7 +128,7 @@ class HyperparameterConfig:
         }
 
         return objective_metric
-    
+
     @staticmethod
     def get_metric_definitions():
         """
@@ -184,7 +182,7 @@ class HyperparameterConfig:
 class HyperparameterTuner:
     """
     Manages hyperparameter tuning jobs with best practices
-    
+
     Best Practices:
     - Use Bayesian strategy for 10-100 jobs
     - Limit parallel jobs (2-3) to balance cost vs speed
@@ -192,23 +190,32 @@ class HyperparameterTuner:
     - Monitor tuning progress and convergence
     """
 
-    def __init__(self, estimator, hyperparameter_ranges, objective_metric, metric_definitions=None):
+    def __init__(
+        self,
+        estimator,
+        hyperparameter_ranges,
+        objective_metric,
+        metric_definitions=None,
+    ):
         self.estimator = estimator
         self.hyperparameter_ranges = hyperparameter_ranges
         self.objective_metric = objective_metric
-        self.metric_definitions = metric_definitions or HyperparameterConfig.get_metric_definitions()
+        self.metric_definitions = (
+            metric_definitions or HyperparameterConfig.get_metric_definitions()
+        )
 
-    def create_tuner(self, max_jobs=10, max_parallel_jobs=2, strategy="Bayesian", 
-                    early_stopping=True):
+    def create_tuner(
+        self, max_jobs=10, max_parallel_jobs=2, strategy="Bayesian", early_stopping=True
+    ):
         """
         Create SageMaker HyperparameterTuner with best practices
-        
+
         Args:
             max_jobs: Total tuning budget (10-20 recommended for production)
             max_parallel_jobs: Concurrent jobs (2-3 recommended to control cost)
             strategy: "Bayesian" (smart), "Random" (baseline), or "Grid" (exhaustive)
             early_stopping: Enable to save 30-50% of training time/cost
-        
+
         Best Practice Cost Examples:
         - Conservative: max_jobs=10, max_parallel_jobs=1
         - Balanced: max_jobs=15, max_parallel_jobs=2
@@ -227,7 +234,7 @@ class HyperparameterTuner:
                 "strategy": strategy,
                 "objective_type": "Maximize",
             }
-            
+
             # Enable early stopping (best practice for cost savings)
             if early_stopping:
                 tuner_config["early_stopping_type"] = "Auto"
@@ -241,7 +248,7 @@ class HyperparameterTuner:
             logger.info(f"  - Parallel jobs: {max_parallel_jobs}")
             logger.info(f"  - Early stopping: {early_stopping}")
             logger.info(f"  - Objective: {self.objective_metric['Name']} (Maximize)")
-            
+
             return tuner
 
         except ImportError:
@@ -251,7 +258,7 @@ class HyperparameterTuner:
     def get_best_hyperparameters(self, tuning_job_name):
         """
         Retrieve best hyperparameters from completed tuning job
-        
+
         Best Practice: After tuning completes, review these parameters and
         update config.yaml DEFAULT_PARAMS for future runs
         """
@@ -265,7 +272,9 @@ class HyperparameterTuner:
             )
 
             best_training_job = response["BestTrainingJob"]["TrainingJobName"]
-            best_objective_value = response["BestTrainingJob"]["FinalHyperParameterTuningJobObjectiveMetric"]["Value"]
+            best_objective_value = response["BestTrainingJob"][
+                "FinalHyperParameterTuningJobObjectiveMetric"
+            ]["Value"]
 
             training_job_response = sagemaker_client.describe_training_job(
                 TrainingJobName=best_training_job
@@ -277,24 +286,26 @@ class HyperparameterTuner:
             logger.info("TUNING RESULTS - UPDATE YOUR CONFIG WITH THESE VALUES")
             logger.info("=" * 80)
             logger.info(f"Best Training Job: {best_training_job}")
-            logger.info(f"Best {self.objective_metric['Name']}: {best_objective_value:.4f}")
+            logger.info(
+                f"Best {self.objective_metric['Name']}: {best_objective_value:.4f}"
+            )
             logger.info(f"\nBest Hyperparameters:")
             for key, value in best_params.items():
                 logger.info(f"  {key}: {value}")
             logger.info("=" * 80)
             logger.info("ACTION REQUIRED: Update config/config.yaml with these values")
             logger.info("=" * 80)
-            
+
             return best_params, best_objective_value
 
         except Exception as e:
             logger.error(f"Error retrieving best hyperparameters: {str(e)}")
             raise
-    
+
     def get_tuning_job_analytics(self, tuning_job_name):
         """
         Get tuning job analytics for analysis and debugging
-        
+
         Helps identify:
         - Parameter convergence
         - Whether ranges are too wide/narrow
@@ -302,20 +313,20 @@ class HyperparameterTuner:
         """
         try:
             from sagemaker.analytics import HyperparameterTuningJobAnalytics
-            
+
             analytics = HyperparameterTuningJobAnalytics(
                 hyperparameter_tuning_job_name=tuning_job_name
             )
-            
+
             df = analytics.dataframe()
             logger.info(f"\nTuning Analytics Summary:")
             logger.info(f"  Total jobs: {len(df)}")
             logger.info(f"  Best score: {df['FinalObjectiveValue'].max():.4f}")
             logger.info(f"  Worst score: {df['FinalObjectiveValue'].min():.4f}")
             logger.info(f"  Mean score: {df['FinalObjectiveValue'].mean():.4f}")
-            
+
             return df
-            
+
         except ImportError:
             logger.warning("SageMaker Analytics not available")
             return None

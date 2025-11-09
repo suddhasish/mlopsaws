@@ -213,7 +213,7 @@ class DiabetesPipeline:
         Create XGBoost estimator (reusable for both training and tuning)
         """
         from src.training.hyperparameters import HyperparameterConfig
-        
+
         xgb_estimator = XGBoost(
             entry_point="src/training/train.py",
             role=self.role,
@@ -228,7 +228,9 @@ class DiabetesPipeline:
                 "num-round": parameters["num_round"],
                 "objective": self.config["model"]["hyperparameters"]["objective"],
                 "eval-metric": self.config["model"]["hyperparameters"]["eval_metric"],
-                "early-stopping-rounds": self.config["model"]["hyperparameters"].get("early_stopping_rounds", 10),
+                "early-stopping-rounds": self.config["model"]["hyperparameters"].get(
+                    "early_stopping_rounds", 10
+                ),
             },
             output_path=f"s3://{self.bucket}/{self.prefix}/models",
             # Managed Spot Training and Checkpointing
@@ -244,7 +246,7 @@ class DiabetesPipeline:
             metric_definitions=HyperparameterConfig.get_metric_definitions(),
             tags=self._format_tags(self.config.get("tags", {})),
         )
-        
+
         return xgb_estimator
 
     def create_training_step(self, parameters, step_process):
@@ -274,23 +276,23 @@ class DiabetesPipeline:
         )
 
         return step_train
-    
+
     def create_tuning_step(self, parameters, step_process):
         """
         Create hyperparameter tuning step
-        
+
         Best Practice: This runs when tuning is enabled in config
         After tuning completes, update config.yaml with best hyperparameters
         """
         logger.info("=" * 80)
         logger.info("Creating HYPERPARAMETER TUNING step")
         logger.info("=" * 80)
-        
+
         from sagemaker.tuner import HyperparameterTuner
         from src.training.hyperparameters import HyperparameterConfig
-        
+
         tuning_config = self.config["sagemaker"]["tuning"]
-        
+
         # Create estimator for tuning (without fixed hyperparameters that will be tuned)
         xgb_estimator = XGBoost(
             entry_point="src/training/train.py",
@@ -304,7 +306,9 @@ class DiabetesPipeline:
                 # Fixed hyperparameters (not tuned)
                 "objective": self.config["model"]["hyperparameters"]["objective"],
                 "eval-metric": self.config["model"]["hyperparameters"]["eval_metric"],
-                "early-stopping-rounds": self.config["model"]["hyperparameters"].get("early_stopping_rounds", 10),
+                "early-stopping-rounds": self.config["model"]["hyperparameters"].get(
+                    "early_stopping_rounds", 10
+                ),
                 "num-round": parameters["num_round"],
             },
             output_path=f"s3://{self.bucket}/{self.prefix}/tuning",
@@ -316,14 +320,14 @@ class DiabetesPipeline:
             metric_definitions=HyperparameterConfig.get_metric_definitions(),
             tags=self._format_tags(self.config.get("tags", {})),
         )
-        
+
         # Get hyperparameter ranges
         phase = tuning_config.get("phase", "exploration")
         hyperparameter_ranges = HyperparameterConfig.get_hyperparameter_ranges(phase)
-        
+
         # Get objective metric
         objective_metric = HyperparameterConfig.get_objective_metric()
-        
+
         # Create tuner
         tuner = HyperparameterTuner(
             estimator=xgb_estimator,
@@ -336,7 +340,7 @@ class DiabetesPipeline:
             objective_type="Maximize",
             early_stopping_type="Auto",  # Best practice: enable early stopping
         )
-        
+
         logger.info(f"Tuning Configuration:")
         logger.info(f"  - Phase: {phase}")
         logger.info(f"  - Strategy: {tuning_config.get('strategy', 'Bayesian')}")
@@ -351,10 +355,10 @@ class DiabetesPipeline:
         logger.info("   2. Update config.yaml with best hyperparameters")
         logger.info("   3. Set tuning.enabled=false for regular runs")
         logger.info("=" * 80)
-        
+
         # Create tuning step
         from sagemaker.workflow.steps import TuningStep
-        
+
         step_tuning = TuningStep(
             name="TuneHyperparameters",
             tuner=tuner,
@@ -373,13 +377,13 @@ class DiabetesPipeline:
                 ),
             },
         )
-        
+
         return step_tuning
 
     def create_evaluation_step(self, step_train, step_process):
         """
         Create model evaluation step
-        
+
         Note: Works with both training and tuning steps
         - For TrainingStep: Uses step_train.properties.ModelArtifacts.S3ModelArtifacts
         - For TuningStep: Uses best model from tuning job automatically
@@ -388,13 +392,14 @@ class DiabetesPipeline:
 
         # Get XGBoost image URI using SageMaker SDK (handles ECR permissions correctly)
         from sagemaker import image_uris
+
         xgboost_image_uri = image_uris.retrieve(
             framework="xgboost",
             region=self.region,
             version="1.5-1",
-            image_scope="training"  # Use training image which has all dependencies
+            image_scope="training",  # Use training image which has all dependencies
         )
-        
+
         logger.info(f"Using XGBoost image: {xgboost_image_uri}")
 
         # Use ScriptProcessor with XGBoost container image
@@ -598,7 +603,7 @@ class DiabetesPipeline:
     def create_pipeline(self):
         """
         Create complete pipeline with conditional hyperparameter tuning
-        
+
         Best Practice Pattern B (Conditional Tuning):
         - When tuning.enabled=true: Runs hyperparameter tuning
         - When tuning.enabled=false: Uses fixed hyperparameters from config
@@ -617,18 +622,18 @@ class DiabetesPipeline:
         # CONDITIONAL TUNING LOGIC (Pattern B - Best Practice)
         # ============================================================
         tuning_enabled = self.config["sagemaker"]["tuning"].get("enabled", False)
-        
+
         if tuning_enabled:
             logger.info("🔧 HYPERPARAMETER TUNING ENABLED")
             logger.info("   Pipeline will search for optimal hyperparameters")
-            
+
             # Create tuning step (replaces training step)
             step_train = self.create_tuning_step(parameters, step_process)
-            
+
         else:
             logger.info("📊 STANDARD TRAINING MODE")
             logger.info("   Using fixed hyperparameters from config")
-            
+
             # Create standard training step
             step_train = self.create_training_step(parameters, step_process)
 
