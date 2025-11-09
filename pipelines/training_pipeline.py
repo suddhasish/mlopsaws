@@ -4,9 +4,15 @@ End-to-end ML pipeline orchestration for diabetes classification
 """
 
 import os
+import sys
 import json
 import boto3
 import sagemaker
+
+# Add project root to Python path for src imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep, CreateModelStep
 from sagemaker.workflow.step_collections import RegisterModel
