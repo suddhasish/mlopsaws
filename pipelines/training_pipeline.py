@@ -248,8 +248,8 @@ class DiabetesPipeline:
             checkpoint_s3_uri=self.config["sagemaker"]["training"].get(
                 "checkpoint_s3_uri"
             ),
-            # Metric definitions for tuning
-            metric_definitions=HyperparameterConfig.get_metric_definitions(),
+            # Note: Don't specify metric_definitions for built-in XGBoost algorithm
+            # SageMaker XGBoost has predefined metrics that cannot be overridden
             tags=self._format_tags(self.config.get("tags", {})),
         )
 
@@ -323,7 +323,7 @@ class DiabetesPipeline:
             ),
             max_wait=self.config["sagemaker"]["training"].get("max_wait_seconds"),
             max_run=self.config["sagemaker"]["training"].get("max_runtime_seconds"),
-            metric_definitions=HyperparameterConfig.get_metric_definitions(),
+            # Note: Don't specify metric_definitions for built-in XGBoost
             tags=self._format_tags(self.config.get("tags", {})),
         )
 
@@ -335,11 +335,12 @@ class DiabetesPipeline:
         objective_metric = HyperparameterConfig.get_objective_metric()
 
         # Create tuner
+        # Note: Don't pass metric_definitions to HyperparameterTuner for built-in algorithms
+        # SageMaker XGBoost already has predefined metrics
         tuner = HyperparameterTuner(
             estimator=xgb_estimator,
             objective_metric_name=objective_metric["Name"],
             hyperparameter_ranges=hyperparameter_ranges,
-            metric_definitions=HyperparameterConfig.get_metric_definitions(),
             max_jobs=tuning_config.get("max_jobs", 10),
             max_parallel_jobs=tuning_config.get("max_parallel_jobs", 2),
             strategy=tuning_config.get("strategy", "Bayesian"),
