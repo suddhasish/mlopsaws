@@ -20,6 +20,10 @@ from sklearn.metrics import (
     roc_curve,
     precision_recall_curve,
 )
+
+# Set matplotlib backend for headless environments (SageMaker)
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 

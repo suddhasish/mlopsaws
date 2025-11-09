@@ -19,7 +19,7 @@ from sagemaker.workflow.parameters import (
     ParameterString,
 )
 from sagemaker.workflow.properties import PropertyFile
-from sagemaker.processing import ProcessingInput, ProcessingOutput
+from sagemaker.processing import ProcessingInput, ProcessingOutput, ScriptProcessor
 from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.inputs import TrainingInput
 from sagemaker.estimator import Estimator
@@ -266,13 +266,14 @@ class DiabetesPipeline:
         """Create model evaluation step"""
         logger.info("Creating evaluation step...")
 
-        # SKLearn processor for evaluation
-        sklearn_processor = SKLearnProcessor(
-            framework_version="1.0-1",
+        # Use ScriptProcessor with Python 3.8 to install custom dependencies
+        script_processor = ScriptProcessor(
+            image_uri=f"763104351884.dkr.ecr.{self.region}.amazonaws.com/sagemaker-scikit-learn:1.0-1-cpu-py3",
             role=self.role,
             instance_type="ml.m5.xlarge",
             instance_count=1,
             base_job_name="diabetes-evaluation",
+            command=["python3"],
             sagemaker_session=self.sagemaker_session,
         )
 
@@ -283,10 +284,10 @@ class DiabetesPipeline:
             path="evaluation_results.json",
         )
 
-        # Define evaluation step
+        # Define evaluation step with dependency installation
         step_eval = ProcessingStep(
             name="EvaluateModel",
-            processor=sklearn_processor,
+            processor=script_processor,
             inputs=[
                 ProcessingInput(
                     source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
@@ -306,7 +307,7 @@ class DiabetesPipeline:
                     destination=f"s3://{self.bucket}/{self.prefix}/evaluation",
                 )
             ],
-            code="src/evaluation/evaluate.py",
+            code="src/evaluation/evaluate_wrapper.py",
             property_files=[evaluation_report],
         )
 
@@ -522,6 +523,9 @@ class DiabetesPipeline:
         execution = pipeline.start()
 
         logger.info(f"Pipeline execution started: {execution.arn}")
+        # Print a machine-parseable line so external callers (CI) can capture the execution ARN
+        # Format: PIPELINE_EXECUTION_ARN=<arn>
+        print(f"PIPELINE_EXECUTION_ARN={execution.arn}")
         logger.info(f"Environment: {self.environment}")
         logger.info(
             f"Approval status: {self.config['sagemaker']['model_registry']['approval_status']}"

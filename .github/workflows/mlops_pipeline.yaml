@@ -218,7 +218,31 @@ jobs:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
-          python pipelines/training_pipeline.py --config config/config.yaml --execute
+          set -e
+          echo "Executing SageMaker pipeline (wrapped)"
+          # Capture stdout (and stderr) so we can parse the execution ARN
+          EXEC_OUTPUT=$(python pipelines/training_pipeline.py --config config/config.yaml --execute 2>&1 || true)
+          echo "$EXEC_OUTPUT"
+
+          # Try to extract the machine-parseable execution ARN printed by the script
+          EXEC_ARN=$(echo "$EXEC_OUTPUT" | sed -n 's/.*PIPELINE_EXECUTION_ARN=\(.*\)/\1/p' | tr -d '\r')
+          if [ -n "$EXEC_ARN" ]; then
+            echo "Captured pipeline execution ARN: $EXEC_ARN"
+            echo "PIPELINE_EXECUTION_ARN=$EXEC_ARN" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Could not capture execution ARN from script output. Falling back to listing latest execution."
+            EXEC_ARN=$(aws sagemaker list-pipeline-executions \
+              --pipeline-name "diabetes-classification-pipeline" \
+              --region "${{ env.AWS_REGION }}" \
+              --max-results 1 \
+              --query 'PipelineExecutionSummaries[0].PipelineExecutionArn' \
+              --output text)
+            if [ -z "$EXEC_ARN" ] || [ "$EXEC_ARN" = "None" ]; then
+              echo "::error::Failed to determine pipeline execution ARN"
+              exit 1
+            fi
+            echo "PIPELINE_EXECUTION_ARN=$EXEC_ARN" >> "$GITHUB_ENV"
+          fi
       
       - name: Wait for SageMaker pipeline completion
         env:
@@ -228,35 +252,61 @@ jobs:
           TIMEOUT_MINUTES: '90'
         run: |
           echo "Waiting for pipeline '$PIPELINE_NAME' to complete..."
-          START=$(date +%s)
-          TIMEOUT=$(( TIMEOUT_MINUTES * 60 ))
-          while true; do
-            # Get latest execution for the pipeline
+          
+          # Prefer the execution ARN captured from the pipeline start step
+          if [ -n "$PIPELINE_EXECUTION_ARN" ] && [ "$PIPELINE_EXECUTION_ARN" != "None" ]; then
+            EXEC_ARN="$PIPELINE_EXECUTION_ARN"
+            echo "Using captured execution ARN from previous step: $EXEC_ARN"
+          else
+            echo "No captured execution ARN found in environment, falling back to listing latest execution"
             EXEC_ARN=$(aws sagemaker list-pipeline-executions \
               --pipeline-name "$PIPELINE_NAME" \
               --region "$AWS_REGION" \
               --max-results 1 \
               --query 'PipelineExecutionSummaries[0].PipelineExecutionArn' \
               --output text)
+            if [ -z "$EXEC_ARN" ] || [ "$EXEC_ARN" = "None" ]; then
+              echo "::error::Failed to get pipeline execution ARN"
+              exit 1
+            fi
+          fi
+
+          echo "Monitoring execution: $EXEC_ARN"
+          
+          START=$(date +%s)
+          TIMEOUT=$(( TIMEOUT_MINUTES * 60 ))
+          
+          while true; do
+            # Check the status of the SAME execution we started with
             STATUS=$(aws sagemaker describe-pipeline-execution \
               --pipeline-execution-arn "$EXEC_ARN" \
               --region "$AWS_REGION" \
               --query 'PipelineExecutionStatus' \
               --output text)
+            
             echo "Current status: $STATUS (ARN: $EXEC_ARN)"
+            
             if [ "$STATUS" = "Succeeded" ]; then
-              echo "Pipeline execution succeeded."
+              echo "✅ Pipeline execution succeeded."
               break
             elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Stopped" ]; then
               echo "::error::Pipeline execution ended with status: $STATUS"
+              # Get failure details
+              aws sagemaker list-pipeline-execution-steps \
+                --pipeline-execution-arn "$EXEC_ARN" \
+                --region "$AWS_REGION" \
+                --query 'PipelineExecutionSteps[?StepStatus==`Failed`].{StepName:StepName, FailureReason:FailureReason}' \
+                --output json
               exit 1
             fi
+            
             NOW=$(date +%s)
             ELAPSED=$(( NOW - START ))
             if [ "$ELAPSED" -gt "$TIMEOUT" ]; then
               echo "::error::Timeout waiting for pipeline to complete after ${TIMEOUT_MINUTES} minutes."
               exit 1
             fi
+            
             sleep "$CHECK_INTERVAL"
           done
 
