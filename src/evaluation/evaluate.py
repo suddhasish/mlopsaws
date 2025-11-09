@@ -23,7 +23,8 @@ from sklearn.metrics import (
 
 # Set matplotlib backend for headless environments (SageMaker)
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 

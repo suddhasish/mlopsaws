@@ -10,13 +10,19 @@ import os
 
 # Install required dependencies
 print("Installing dependencies...")
-subprocess.check_call([
-    sys.executable, "-m", "pip", "install", "--quiet",
-    "xgboost==1.7.6",
-    "scikit-learn>=1.0.0",
-    "matplotlib>=3.5.0",
-    "seaborn>=0.11.0"
-])
+subprocess.check_call(
+    [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--quiet",
+        "xgboost==1.7.6",
+        "scikit-learn>=1.0.0",
+        "matplotlib>=3.5.0",
+        "seaborn>=0.11.0",
+    ]
+)
 
 print("Dependencies installed successfully")
 
@@ -24,7 +30,7 @@ print("Dependencies installed successfully")
 print("Starting evaluation...")
 
 # Add the code directory to path
-sys.path.insert(0, '/opt/ml/processing/input/code')
+sys.path.insert(0, "/opt/ml/processing/input/code")
 
 # Import the main evaluation module
 from evaluate import *
