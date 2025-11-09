@@ -324,7 +324,9 @@ class ModelEvaluator:
             for metric, passed in approval_status["checks"].items():
                 if not passed:
                     actual_value = self.metrics.get(metric, 0)
-                    required_value = approval_status['criteria'].get(f'min_{metric}', 'N/A')
+                    required_value = approval_status["criteria"].get(
+                        f"min_{metric}", "N/A"
+                    )
                     logger.warning(
                         f"  - {metric}: {actual_value:.4f} (required: {required_value})"
                     )
