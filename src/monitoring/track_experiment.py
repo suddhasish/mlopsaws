@@ -10,8 +10,18 @@ import sys
 import logging
 from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+# Add project root to path for src imports
+# In SageMaker, the script is in /opt/ml/processing/input/code/
+# We need to add that directory to sys.path to import src modules
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(script_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# If running in SageMaker processing job, also try the code directory
+code_dir = "/opt/ml/processing/input/code"
+if os.path.exists(code_dir) and code_dir not in sys.path:
+    sys.path.insert(0, code_dir)
 
 from src.monitoring.experiment_tracker import ExperimentTracker
 
