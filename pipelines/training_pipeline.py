@@ -19,7 +19,7 @@ from sagemaker.workflow.parameters import (
     ParameterString,
 )
 from sagemaker.workflow.properties import PropertyFile
-from sagemaker.processing import ProcessingInput, ProcessingOutput
+from sagemaker.processing import ProcessingInput, ProcessingOutput, ScriptProcessor
 from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.xgboost.processing import XGBoostProcessor
 from sagemaker.inputs import TrainingInput
@@ -267,13 +267,15 @@ class DiabetesPipeline:
         """Create model evaluation step"""
         logger.info("Creating evaluation step...")
 
-        # Use XGBoostProcessor - has both xgboost and sklearn preinstalled
-        xgb_processor = XGBoostProcessor(
-            framework_version="1.5-1",  # Match training version
+        # Use ScriptProcessor with XGBoost container image
+        # XGBoost container has both xgboost and sklearn preinstalled
+        xgb_processor = ScriptProcessor(
+            image_uri=f"763104351884.dkr.ecr.{self.region}.amazonaws.com/sagemaker-xgboost:1.5-1",
             role=self.role,
             instance_type="ml.m5.xlarge",
             instance_count=1,
             base_job_name="diabetes-evaluation",
+            command=["python3"],  # Explicitly specify Python interpreter
             sagemaker_session=self.sagemaker_session,
         )
 
@@ -284,7 +286,7 @@ class DiabetesPipeline:
             path="evaluation_results.json",
         )
 
-        # Define evaluation step - no wrapper needed, xgboost is preinstalled
+        # Define evaluation step - xgboost container has both xgboost and sklearn
         step_eval = ProcessingStep(
             name="EvaluateModel",
             processor=xgb_processor,
