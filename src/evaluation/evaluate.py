@@ -323,8 +323,10 @@ class ModelEvaluator:
             logger.warning("✗ Model REJECTED - Some criteria not met")
             for metric, passed in approval_status["checks"].items():
                 if not passed:
+                    actual_value = self.metrics.get(metric, 0)
+                    required_value = approval_status['criteria'].get(f'min_{metric}', 'N/A')
                     logger.warning(
-                        f"  - {metric}: {self.metrics.get(metric, 0):.4f} (required: {approval_status['criteria'][f'min_{metric}']})"
+                        f"  - {metric}: {actual_value:.4f} (required: {required_value})"
                     )
 
         return approval_status
