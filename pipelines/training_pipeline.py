@@ -19,8 +19,9 @@ from sagemaker.workflow.parameters import (
     ParameterString,
 )
 from sagemaker.workflow.properties import PropertyFile
-from sagemaker.processing import ProcessingInput, ProcessingOutput, ScriptProcessor
+from sagemaker.processing import ProcessingInput, ProcessingOutput
 from sagemaker.sklearn.processing import SKLearnProcessor
+from sagemaker.xgboost.processing import XGBoostProcessor
 from sagemaker.inputs import TrainingInput
 from sagemaker.estimator import Estimator
 from sagemaker.model_metrics import MetricsSource, ModelMetrics
@@ -266,14 +267,13 @@ class DiabetesPipeline:
         """Create model evaluation step"""
         logger.info("Creating evaluation step...")
 
-        # Use ScriptProcessor with Python 3.8 to install custom dependencies
-        script_processor = ScriptProcessor(
-            image_uri=f"763104351884.dkr.ecr.{self.region}.amazonaws.com/sagemaker-scikit-learn:1.0-1-cpu-py3",
+        # Use XGBoostProcessor - has both xgboost and sklearn preinstalled
+        xgb_processor = XGBoostProcessor(
+            framework_version="1.5-1",  # Match training version
             role=self.role,
             instance_type="ml.m5.xlarge",
             instance_count=1,
             base_job_name="diabetes-evaluation",
-            command=["python3"],
             sagemaker_session=self.sagemaker_session,
         )
 
@@ -284,10 +284,10 @@ class DiabetesPipeline:
             path="evaluation_results.json",
         )
 
-        # Define evaluation step with dependency installation
+        # Define evaluation step - no wrapper needed, xgboost is preinstalled
         step_eval = ProcessingStep(
             name="EvaluateModel",
-            processor=script_processor,
+            processor=xgb_processor,
             inputs=[
                 ProcessingInput(
                     source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
@@ -307,7 +307,7 @@ class DiabetesPipeline:
                     destination=f"s3://{self.bucket}/{self.prefix}/evaluation",
                 )
             ],
-            code="src/evaluation/evaluate_wrapper.py",
+            code="src/evaluation/evaluate.py",
             property_files=[evaluation_report],
         )
 
