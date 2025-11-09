@@ -346,7 +346,36 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logger.info("Loading model...")
-    model_path = os.path.join(args.model_dir, "xgboost-model")
+    # SageMaker saves model as model.tar.gz, need to extract it
+    import tarfile
+    
+    # Check if model.tar.gz exists and extract it
+    model_tar_path = os.path.join(args.model_dir, "model.tar.gz")
+    if os.path.exists(model_tar_path):
+        logger.info(f"Extracting model from {model_tar_path}")
+        with tarfile.open(model_tar_path, "r:gz") as tar:
+            tar.extractall(path=args.model_dir)
+        logger.info("Model extracted successfully")
+    
+    # Try different possible model file names
+    possible_model_names = ["xgboost-model", "model.xgb", "0000.model"]
+    model_path = None
+    
+    for model_name in possible_model_names:
+        test_path = os.path.join(args.model_dir, model_name)
+        if os.path.exists(test_path):
+            model_path = test_path
+            logger.info(f"Found model at: {model_path}")
+            break
+    
+    if model_path is None:
+        # List all files in model directory for debugging
+        logger.error(f"Model not found. Files in {args.model_dir}:")
+        for root, dirs, files in os.walk(args.model_dir):
+            for file in files:
+                logger.error(f"  - {os.path.join(root, file)}")
+        raise FileNotFoundError(f"Model file not found in {args.model_dir}")
+    
     booster = xgb.Booster()
     booster.load_model(model_path)
 
