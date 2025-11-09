@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Model Evaluation Module
 Comprehensive evaluation metrics and model assessment for diabetes classification
