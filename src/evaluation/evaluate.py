@@ -27,7 +27,6 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -101,21 +100,41 @@ class ModelEvaluator:
         return cm_dict
 
     def plot_confusion_matrix(self, y_true, y_pred, output_path=None):
-        """Plot confusion matrix heatmap"""
+        """Plot confusion matrix heatmap using matplotlib"""
         cm = confusion_matrix(y_true, y_pred)
 
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            cm,
-            annot=True,
-            fmt="d",
-            cmap="Blues",
+        fig, ax = plt.subplots(figsize=(8, 6))
+        im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
+        ax.figure.colorbar(im, ax=ax)
+
+        # Set ticks and labels
+        ax.set(
+            xticks=np.arange(cm.shape[1]),
+            yticks=np.arange(cm.shape[0]),
             xticklabels=["No Diabetes", "Diabetes"],
             yticklabels=["No Diabetes", "Diabetes"],
+            ylabel="True Label",
+            xlabel="Predicted Label",
+            title="Confusion Matrix",
         )
-        plt.ylabel("True Label")
-        plt.xlabel("Predicted Label")
-        plt.title("Confusion Matrix")
+
+        # Rotate the tick labels and set their alignment
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
+        # Loop over data dimensions and create text annotations
+        thresh = cm.max() / 2.0
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(
+                    j,
+                    i,
+                    format(cm[i, j], "d"),
+                    ha="center",
+                    va="center",
+                    color="white" if cm[i, j] > thresh else "black",
+                )
+
+        fig.tight_layout()
 
         if output_path:
             plt.savefig(output_path, bbox_inches="tight", dpi=300)
