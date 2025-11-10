@@ -223,24 +223,54 @@ class ModelDeployer:
         logger.info(f"Instance type: {instance_type}, Instance count: {instance_count}")
 
         try:
-            # Generate unique endpoint config name to avoid conflicts
-            import datetime
-
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            endpoint_config_name = f"{endpoint_name}-config-{timestamp}"
-
-            # Deploy model with explicit endpoint config name
-            predictor = model.deploy(
-                initial_instance_count=instance_count,
-                instance_type=instance_type,
-                endpoint_name=endpoint_name,
-                endpoint_config_name=endpoint_config_name,
-                serializer=CSVSerializer(),
-                deserializer=JSONDeserializer(),
-            )
-
-            logger.info(f"Model deployed successfully to endpoint: {endpoint_name}")
-            return predictor, endpoint_name
+            # Check if endpoint exists and update it instead of creating new
+            try:
+                existing_endpoint = self.sagemaker_client.describe_endpoint(
+                    EndpointName=endpoint_name
+                )
+                logger.info(f"Endpoint {endpoint_name} already exists. Updating with new model...")
+                
+                # Create new endpoint config with timestamp
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+                new_model_name = f"diabetes-model-{timestamp}"
+                new_model = self.create_model(self.get_approved_model(), new_model_name)
+                
+                # Use update_endpoint method
+                self.update_endpoint(endpoint_name, new_model_name)
+                
+                # Create predictor for existing endpoint
+                predictor = Predictor(
+                    endpoint_name=endpoint_name,
+                    sagemaker_session=self.sagemaker_session,
+                    serializer=CSVSerializer(),
+                    deserializer=JSONDeserializer(),
+                )
+                logger.info(f"Endpoint {endpoint_name} updated successfully")
+                return predictor, endpoint_name
+                
+            except self.sagemaker_client.exceptions.ClientError as desc_error:
+                if desc_error.response['Error']['Code'] == 'ValidationException':
+                    # Endpoint doesn't exist, create new one
+                    logger.info(f"Endpoint {endpoint_name} does not exist. Creating new endpoint...")
+                    
+                    # Use timestamp in endpoint name to avoid config conflicts
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+                    unique_endpoint_name = f"{endpoint_name}-{timestamp}"
+                    
+                    predictor = model.deploy(
+                        initial_instance_count=instance_count,
+                        instance_type=instance_type,
+                        endpoint_name=unique_endpoint_name,
+                        serializer=CSVSerializer(),
+                        deserializer=JSONDeserializer(),
+                    )
+                    
+                    logger.info(f"Model deployed successfully to endpoint: {unique_endpoint_name}")
+                    return predictor, unique_endpoint_name
+                else:
+                    raise
 
         except Exception as e:
             logger.error(f"Error deploying model: {str(e)}")
