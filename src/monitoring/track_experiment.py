@@ -8,27 +8,122 @@ import json
 import os
 import sys
 import logging
+import time
+import boto3
 from datetime import datetime
-
-# Add project root to path for src imports
-# In SageMaker, the script is in /opt/ml/processing/input/code/
-# We need to add that directory to sys.path to import src modules
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(script_dir))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# If running in SageMaker processing job, also try the code directory
-code_dir = "/opt/ml/processing/input/code"
-if os.path.exists(code_dir) and code_dir not in sys.path:
-    sys.path.insert(0, code_dir)
-
-from src.monitoring.experiment_tracker import ExperimentTracker
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+# Inline ExperimentTracker to avoid import issues in SageMaker
+class ExperimentTracker:
+    """Track ML experiments with metrics and parameters"""
+
+    def __init__(self, experiment_name, run_name=None, region="us-east-1"):
+        self.experiment_name = experiment_name
+        self.run_name = run_name or f"run-{int(time.time())}"
+        self.region = region
+        self.sm_client = boto3.client("sagemaker", region_name=region)
+        self._create_experiment()
+
+    def _create_experiment(self):
+        """Create SageMaker experiment"""
+        try:
+            self.sm_client.create_experiment(
+                ExperimentName=self.experiment_name,
+                Description=f"Diabetes classification model experiments - {datetime.now().strftime('%Y-%m-%d')}",
+            )
+            logger.info(f"✅ Created experiment: {self.experiment_name}")
+        except self.sm_client.exceptions.ResourceInUse:
+            logger.info(f"📊 Using existing experiment: {self.experiment_name}")
+        except Exception as e:
+            logger.error(f"Failed to create experiment: {e}")
+
+    def start_run(self, run_name=None):
+        """Start a new experiment run"""
+        if run_name:
+            self.run_name = run_name
+        try:
+            self.sm_client.create_trial(
+                ExperimentName=self.experiment_name, TrialName=self.run_name
+            )
+            logger.info(f"✅ Started run: {self.run_name}")
+        except self.sm_client.exceptions.ResourceInUse:
+            logger.info(f"📊 Using existing run: {self.run_name}")
+        except Exception as e:
+            logger.error(f"Failed to start run: {e}")
+
+    def log_parameters(self, parameters):
+        """Log hyperparameters for the run"""
+        try:
+            for key, value in parameters.items():
+                self.sm_client.create_trial_component(
+                    TrialComponentName=f"{self.run_name}-{key}-{int(time.time())}",
+                    DisplayName=key,
+                    Parameters={
+                        key: {
+                            "NumberValue": (
+                                float(value) if isinstance(value, (int, float)) else 0
+                            )
+                        }
+                    },
+                )
+            logger.info(f"✅ Logged {len(parameters)} parameters")
+        except Exception as e:
+            logger.error(f"Failed to log parameters: {e}")
+
+    def log_metrics(self, metrics):
+        """Log performance metrics"""
+        try:
+            trial_component_name = f"{self.run_name}-metrics-{int(time.time())}"
+            metric_data = {}
+            for key, value in metrics.items():
+                if isinstance(value, (int, float)):
+                    metric_data[key] = {"NumberValue": float(value)}
+                else:
+                    metric_data[key] = {"StringValue": str(value)}
+            self.sm_client.create_trial_component(
+                TrialComponentName=trial_component_name,
+                DisplayName="Metrics",
+                Metrics=metric_data,
+            )
+            logger.info(f"✅ Logged metrics: {', '.join(metrics.keys())}")
+        except Exception as e:
+            logger.error(f"Failed to log metrics: {e}")
+
+    def log_artifact(self, artifact_uri, artifact_type="model"):
+        """Log model artifacts or other files"""
+        try:
+            self.sm_client.create_trial_component(
+                TrialComponentName=f"{self.run_name}-artifact-{int(time.time())}",
+                DisplayName=f"{artifact_type}_artifact",
+                InputArtifacts={
+                    artifact_type: {"Value": artifact_uri, "MediaType": "text/plain"}
+                },
+            )
+            logger.info(f"✅ Logged artifact: {artifact_uri}")
+        except Exception as e:
+            logger.error(f"Failed to log artifact: {e}")
+
+    def print_experiment_summary(self):
+        """Print summary of all experiment runs"""
+        try:
+            response = self.sm_client.list_trials(ExperimentName=self.experiment_name)
+            trials = response["TrialSummaries"]
+            print("\n" + "=" * 80)
+            print(f"EXPERIMENT: {self.experiment_name}")
+            print("=" * 80)
+            print(f"Total Runs: {len(trials)}")
+            print("\nRecent Runs:")
+            for trial in trials[:10]:
+                print(f"  - {trial['TrialName']}")
+                print(f"    Created: {trial['CreationTime']}")
+            print("=" * 80 + "\n")
+        except Exception as e:
+            logger.error(f"Failed to get experiment summary: {e}")
 
 
 def track_training_experiment(args):
