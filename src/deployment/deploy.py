@@ -237,6 +237,12 @@ class ModelDeployer:
 
         except Exception as e:
             logger.error(f"Error deploying model: {str(e)}")
+            logger.error(f"\nTroubleshooting steps:")
+            logger.error(f"1. Check CloudWatch logs:")
+            logger.error(f"   aws logs tail /aws/sagemaker/Endpoints/{endpoint_name} --follow")
+            logger.error(f"2. Verify instance type {instance_type} supports XGBoost")
+            logger.error(f"3. Check model package contents in S3")
+            logger.error(f"4. Try a different instance type (e.g., ml.m5.xlarge)")
             raise
 
     def update_endpoint(self, endpoint_name, new_model_name):
