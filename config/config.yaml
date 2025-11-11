@@ -89,13 +89,13 @@ sagemaker:
     
   # Endpoint Configuration
   endpoint:
-    instance_type: ml.t2.medium
+    instance_type: ml.m5.large  # ml.t2.medium not supported for auto-scaling or reliable XGBoost serving
     initial_instance_count: 1
     variant_name: AllTraffic
     
   # Auto-scaling Configuration
   autoscaling:
-    enabled: true
+    enabled: false  # Set to true after endpoint is deployed with ml.m5.large
     min_capacity: 1
     max_capacity: 5
     target_invocations_per_instance: 1000
