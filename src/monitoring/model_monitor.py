@@ -15,6 +15,7 @@ from sagemaker.model_monitor import (
     DataCaptureConfig,
     CronExpressionGenerator,
 )
+
 # Note: DataQualityMonitoringConfig and ModelQualityMonitoringConfig may not be available in all SDK versions
 # Use DefaultModelMonitor and ModelQualityMonitor classes instead
 try:
