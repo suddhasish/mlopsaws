@@ -245,7 +245,9 @@ class ModelMonitor:
         Create monitoring schedule for continuous monitoring
         """
         if schedule_name is None:
-            schedule_name = f"{endpoint_name}-monitoring-schedule"
+            # Shorten suffix to stay under 63 char AWS limit
+            # diabetes-classifier-prod-2025-11-11-16-59-36 (45) + -mon (4) = 49 chars
+            schedule_name = f"{endpoint_name}-mon"
 
         logger.info(f"Creating monitoring schedule: {schedule_name}")
 
