@@ -99,25 +99,20 @@ def train(args):
     model_dir = args.model_dir
     os.makedirs(model_dir, exist_ok=True)
 
+    # IMPORTANT: SageMaker XGBoost built-in container only needs the model file
+    # Any other files in model.tar.gz will confuse the serving container
     model_path = os.path.join(model_dir, "xgboost-model")
     bst.save_model(model_path)
     logger.info(f"Model saved to {model_path}")
 
-    # Save model as pickle (for easier loading)
-    joblib.dump(bst, os.path.join(model_dir, "model.pkl"))
-
-    # Save feature importance
+    # Log feature importance (don't save to model dir - causes serving issues)
     importance = bst.get_score(importance_type="weight")
     importance_sorted = dict(
         sorted(importance.items(), key=lambda x: x[1], reverse=True)
     )
-
-    with open(os.path.join(model_dir, "feature_importance.json"), "w") as f:
-        json.dump(importance_sorted, f, indent=2)
-
     logger.info(f"Feature importance: {importance_sorted}")
 
-    # Save training metadata
+    # Log training metadata (don't save to model dir)
     metadata = {
         "hyperparameters": params,
         "num_boost_rounds": num_round,
@@ -126,11 +121,9 @@ def train(args):
         "validation_samples": len(X_val),
         "features": X_train.shape[1],
     }
+    logger.info(f"Training metadata: {metadata}")
 
-    with open(os.path.join(model_dir, "model_metadata.json"), "w") as f:
-        json.dump(metadata, f, indent=2)
-
-    logger.info("Training artifacts saved successfully")
+    logger.info("Model saved successfully (xgboost-model only)")
 
     # Track experiment with SageMaker Experiments
     try:
