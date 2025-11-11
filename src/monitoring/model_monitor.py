@@ -13,11 +13,14 @@ import boto3
 import sagemaker
 from sagemaker.model_monitor import (
     DataCaptureConfig,
-    DataQualityMonitoringConfig,
-    ModelQualityMonitoringConfig,
     CronExpressionGenerator,
 )
-from sagemaker.model_monitor.dataset_format import DatasetFormat
+# Note: DataQualityMonitoringConfig and ModelQualityMonitoringConfig may not be available in all SDK versions
+# Use DefaultModelMonitor and ModelQualityMonitor classes instead
+try:
+    from sagemaker.model_monitor.dataset_format import DatasetFormat
+except ImportError:
+    DatasetFormat = None
 import logging
 import yaml
 
