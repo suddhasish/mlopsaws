@@ -225,11 +225,12 @@ class ModelDeployer:
         try:
             # Use timestamp in endpoint name to make it unique and avoid conflicts
             import datetime
+
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             unique_endpoint_name = f"{endpoint_name}-{timestamp}"
-            
+
             logger.info(f"Creating endpoint with unique name: {unique_endpoint_name}")
-            
+
             predictor = model.deploy(
                 initial_instance_count=instance_count,
                 instance_type=instance_type,
@@ -238,7 +239,9 @@ class ModelDeployer:
                 deserializer=JSONDeserializer(),
             )
 
-            logger.info(f"Model deployed successfully to endpoint: {unique_endpoint_name}")
+            logger.info(
+                f"Model deployed successfully to endpoint: {unique_endpoint_name}"
+            )
             return predictor, unique_endpoint_name
 
         except Exception as e:
