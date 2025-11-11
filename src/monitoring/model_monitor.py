@@ -294,10 +294,10 @@ def main():
         help="Name of the endpoint to monitor",
     )
     parser.add_argument(
-        "--baseline-data", 
-        type=str, 
-        required=False, 
-        help="S3 path to baseline dataset (required only for --create-baseline)"
+        "--baseline-data",
+        type=str,
+        required=False,
+        help="S3 path to baseline dataset (required only for --create-baseline)",
     )
     parser.add_argument(
         "--enable-capture", action="store_true", help="Enable data capture"
