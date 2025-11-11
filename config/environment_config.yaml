@@ -23,7 +23,7 @@ dev:
       use_spot_instances: true  # Save costs
     
     endpoint:
-      instance_type: ml.t2.medium  # Cheapest for dev testing
+      instance_type: ml.m5.large  # Changed from ml.t2.medium - more reliable for XGBoost
       initial_instance_count: 1
     
     autoscaling:
