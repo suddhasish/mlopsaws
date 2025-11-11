@@ -294,7 +294,10 @@ def main():
         help="Name of the endpoint to monitor",
     )
     parser.add_argument(
-        "--baseline-data", type=str, required=True, help="S3 path to baseline dataset"
+        "--baseline-data", 
+        type=str, 
+        required=False, 
+        help="S3 path to baseline dataset (required only for --create-baseline)"
     )
     parser.add_argument(
         "--enable-capture", action="store_true", help="Enable data capture"
@@ -318,6 +321,9 @@ def main():
     # Create baseline
     baseline_uri = None
     if args.create_baseline:
+        if not args.baseline_data:
+            logger.error("--baseline-data is required when using --create-baseline")
+            return
         baseline_uri = monitor.create_baseline(args.endpoint_name, args.baseline_data)
 
     # Create monitoring schedule
