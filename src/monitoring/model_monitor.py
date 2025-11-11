@@ -149,19 +149,21 @@ class ModelMonitor:
 
             # Use shorter timestamp format: YYYYMMDD-HHMM
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
-            
+
             # If endpoint name is too long, use hash suffix
             max_base_length = 63 - len(timestamp) - len("-dc-")  # 63 - 13 - 4 = 46
-            
+
             if len(endpoint_name) > max_base_length:
                 # Use first part + hash for uniqueness
                 name_hash = hashlib.md5(endpoint_name.encode()).hexdigest()[:6]
-                base_name = endpoint_name[:max_base_length-7] + name_hash
+                base_name = endpoint_name[: max_base_length - 7] + name_hash
             else:
                 base_name = endpoint_name
-            
+
             new_config_name = f"{base_name}-dc-{timestamp}"
-            logger.info(f"Creating endpoint config: {new_config_name} (length: {len(new_config_name)})")
+            logger.info(
+                f"Creating endpoint config: {new_config_name} (length: {len(new_config_name)})"
+            )
 
             self.sagemaker_client.create_endpoint_config(
                 EndpointConfigName=new_config_name,
