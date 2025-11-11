@@ -67,26 +67,29 @@ class ModelMonitor:
         """
         try:
             response = self.sagemaker_client.list_endpoints(
-                SortBy='CreationTime',
-                SortOrder='Descending',
+                SortBy="CreationTime",
+                SortOrder="Descending",
                 MaxResults=100,
-                StatusEquals='InService'
+                StatusEquals="InService",
             )
-            
+
             # Find endpoints matching the prefix
             matching_endpoints = [
-                ep for ep in response['Endpoints'] 
-                if ep['EndpointName'].startswith(endpoint_name_prefix)
+                ep
+                for ep in response["Endpoints"]
+                if ep["EndpointName"].startswith(endpoint_name_prefix)
             ]
-            
+
             if matching_endpoints:
-                latest = matching_endpoints[0]['EndpointName']
+                latest = matching_endpoints[0]["EndpointName"]
                 logger.info(f"Found active endpoint: {latest}")
                 return latest
             else:
-                logger.warning(f"No InService endpoints found with prefix: {endpoint_name_prefix}")
+                logger.warning(
+                    f"No InService endpoints found with prefix: {endpoint_name_prefix}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error finding active endpoint: {str(e)}")
             return None
@@ -105,22 +108,32 @@ class ModelMonitor:
             endpoint_desc = self.sagemaker_client.describe_endpoint(
                 EndpointName=endpoint_name
             )
-            
+
             # Check endpoint status
             endpoint_status = endpoint_desc["EndpointStatus"]
             if endpoint_status == "Failed":
                 logger.error(f"Endpoint {endpoint_name} is in Failed state")
                 logger.error("Please delete the failed endpoint first:")
-                logger.error(f"  aws sagemaker delete-endpoint --endpoint-name {endpoint_name}")
+                logger.error(
+                    f"  aws sagemaker delete-endpoint --endpoint-name {endpoint_name}"
+                )
                 logger.error("Then redeploy a new endpoint with:")
-                logger.error(f"  python src/deployment/deploy.py --endpoint-name {endpoint_name} --allow-unapproved")
-                raise ValueError(f"Endpoint {endpoint_name} is in Failed state and cannot be updated")
-            
+                logger.error(
+                    f"  python src/deployment/deploy.py --endpoint-name {endpoint_name} --allow-unapproved"
+                )
+                raise ValueError(
+                    f"Endpoint {endpoint_name} is in Failed state and cannot be updated"
+                )
+
             if endpoint_status != "InService":
-                logger.warning(f"Endpoint {endpoint_name} is in {endpoint_status} state, not InService")
-                logger.warning("Data capture can only be enabled on InService endpoints")
+                logger.warning(
+                    f"Endpoint {endpoint_name} is in {endpoint_status} state, not InService"
+                )
+                logger.warning(
+                    "Data capture can only be enabled on InService endpoints"
+                )
                 return None
-            
+
             current_config = endpoint_desc["EndpointConfigName"]
 
             # Get production variants
@@ -363,25 +376,35 @@ def main():
 
     # Try to find the actual active endpoint if the provided name doesn't exist or is failed
     actual_endpoint_name = args.endpoint_name
-    
+
     try:
         endpoint_desc = monitor.sagemaker_client.describe_endpoint(
             EndpointName=args.endpoint_name
         )
         if endpoint_desc["EndpointStatus"] != "InService":
-            logger.warning(f"Endpoint {args.endpoint_name} is in {endpoint_desc['EndpointStatus']} state")
-            logger.info(f"Searching for active endpoint with prefix: {args.endpoint_name}")
+            logger.warning(
+                f"Endpoint {args.endpoint_name} is in {endpoint_desc['EndpointStatus']} state"
+            )
+            logger.info(
+                f"Searching for active endpoint with prefix: {args.endpoint_name}"
+            )
             actual_endpoint_name = monitor.find_active_endpoint(args.endpoint_name)
             if actual_endpoint_name is None:
-                logger.error(f"No active endpoint found with prefix: {args.endpoint_name}")
+                logger.error(
+                    f"No active endpoint found with prefix: {args.endpoint_name}"
+                )
                 logger.info("Available InService endpoints:")
-                endpoints = monitor.sagemaker_client.list_endpoints(StatusEquals='InService')
-                for ep in endpoints['Endpoints']:
+                endpoints = monitor.sagemaker_client.list_endpoints(
+                    StatusEquals="InService"
+                )
+                for ep in endpoints["Endpoints"]:
                     logger.info(f"  - {ep['EndpointName']}")
                 return
     except monitor.sagemaker_client.exceptions.ClientError:
         # Endpoint doesn't exist, try to find it by prefix
-        logger.info(f"Endpoint {args.endpoint_name} not found. Searching for active endpoint with prefix...")
+        logger.info(
+            f"Endpoint {args.endpoint_name} not found. Searching for active endpoint with prefix..."
+        )
         actual_endpoint_name = monitor.find_active_endpoint(args.endpoint_name)
         if actual_endpoint_name is None:
             logger.error(f"No active endpoint found with prefix: {args.endpoint_name}")
