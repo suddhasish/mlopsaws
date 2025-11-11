@@ -60,6 +60,37 @@ class ModelMonitor:
         )
         self.sagemaker_client = boto3.client("sagemaker", region_name=self.region)
 
+    def find_active_endpoint(self, endpoint_name_prefix):
+        """
+        Find the latest InService endpoint matching the prefix
+        Returns the full endpoint name or None
+        """
+        try:
+            response = self.sagemaker_client.list_endpoints(
+                SortBy='CreationTime',
+                SortOrder='Descending',
+                MaxResults=100,
+                StatusEquals='InService'
+            )
+            
+            # Find endpoints matching the prefix
+            matching_endpoints = [
+                ep for ep in response['Endpoints'] 
+                if ep['EndpointName'].startswith(endpoint_name_prefix)
+            ]
+            
+            if matching_endpoints:
+                latest = matching_endpoints[0]['EndpointName']
+                logger.info(f"Found active endpoint: {latest}")
+                return latest
+            else:
+                logger.warning(f"No InService endpoints found with prefix: {endpoint_name_prefix}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error finding active endpoint: {str(e)}")
+            return None
+
     def enable_data_capture(self, endpoint_name, sampling_percentage=100):
         """
         Enable data capture for an endpoint
@@ -74,6 +105,22 @@ class ModelMonitor:
             endpoint_desc = self.sagemaker_client.describe_endpoint(
                 EndpointName=endpoint_name
             )
+            
+            # Check endpoint status
+            endpoint_status = endpoint_desc["EndpointStatus"]
+            if endpoint_status == "Failed":
+                logger.error(f"Endpoint {endpoint_name} is in Failed state")
+                logger.error("Please delete the failed endpoint first:")
+                logger.error(f"  aws sagemaker delete-endpoint --endpoint-name {endpoint_name}")
+                logger.error("Then redeploy a new endpoint with:")
+                logger.error(f"  python src/deployment/deploy.py --endpoint-name {endpoint_name} --allow-unapproved")
+                raise ValueError(f"Endpoint {endpoint_name} is in Failed state and cannot be updated")
+            
+            if endpoint_status != "InService":
+                logger.warning(f"Endpoint {endpoint_name} is in {endpoint_status} state, not InService")
+                logger.warning("Data capture can only be enabled on InService endpoints")
+                return None
+            
             current_config = endpoint_desc["EndpointConfigName"]
 
             # Get production variants
@@ -314,9 +361,37 @@ def main():
     # Initialize monitor
     monitor = ModelMonitor(config_path=args.config)
 
+    # Try to find the actual active endpoint if the provided name doesn't exist or is failed
+    actual_endpoint_name = args.endpoint_name
+    
+    try:
+        endpoint_desc = monitor.sagemaker_client.describe_endpoint(
+            EndpointName=args.endpoint_name
+        )
+        if endpoint_desc["EndpointStatus"] != "InService":
+            logger.warning(f"Endpoint {args.endpoint_name} is in {endpoint_desc['EndpointStatus']} state")
+            logger.info(f"Searching for active endpoint with prefix: {args.endpoint_name}")
+            actual_endpoint_name = monitor.find_active_endpoint(args.endpoint_name)
+            if actual_endpoint_name is None:
+                logger.error(f"No active endpoint found with prefix: {args.endpoint_name}")
+                logger.info("Available InService endpoints:")
+                endpoints = monitor.sagemaker_client.list_endpoints(StatusEquals='InService')
+                for ep in endpoints['Endpoints']:
+                    logger.info(f"  - {ep['EndpointName']}")
+                return
+    except monitor.sagemaker_client.exceptions.ClientError:
+        # Endpoint doesn't exist, try to find it by prefix
+        logger.info(f"Endpoint {args.endpoint_name} not found. Searching for active endpoint with prefix...")
+        actual_endpoint_name = monitor.find_active_endpoint(args.endpoint_name)
+        if actual_endpoint_name is None:
+            logger.error(f"No active endpoint found with prefix: {args.endpoint_name}")
+            return
+
+    logger.info(f"Using endpoint: {actual_endpoint_name}")
+
     # Enable data capture
     if args.enable_capture:
-        monitor.enable_data_capture(args.endpoint_name)
+        monitor.enable_data_capture(actual_endpoint_name)
 
     # Create baseline
     baseline_uri = None
@@ -324,14 +399,14 @@ def main():
         if not args.baseline_data:
             logger.error("--baseline-data is required when using --create-baseline")
             return
-        baseline_uri = monitor.create_baseline(args.endpoint_name, args.baseline_data)
+        baseline_uri = monitor.create_baseline(actual_endpoint_name, args.baseline_data)
 
     # Create monitoring schedule
     if args.create_schedule:
         if baseline_uri is None:
             baseline_uri = f"s3://{monitor.bucket}/{monitor.prefix}/monitoring/baseline"
 
-        monitor.create_monitoring_schedule(args.endpoint_name, baseline_uri)
+        monitor.create_monitoring_schedule(actual_endpoint_name, baseline_uri)
 
     logger.info("Model monitoring setup completed!")
 
