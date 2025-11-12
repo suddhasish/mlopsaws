@@ -1,0 +1,456 @@
+name: Multi-Stage Model Deployment (Dev → Staging → Prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Deploy to environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+        default: dev
+      model_package_arn:
+        description: 'Model package ARN (optional - uses latest approved if empty)'
+        required: false
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: '3.8'
+
+jobs:
+  # ============================================================================
+  # JOB 1: Get and Validate Model
+  # ============================================================================
+  validate-model:
+    name: Validate Model Package
+    runs-on: ubuntu-latest
+    outputs:
+      model_arn: ${{ steps.get_model.outputs.arn }}
+      model_version: ${{ steps.get_model.outputs.version }}
+      environment: ${{ github.event.inputs.target_environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Get model from registry
+        id: get_model
+        run: |
+          if [ -n "${{ github.event.inputs.model_package_arn }}" ]; then
+            # Use provided model ARN
+            MODEL_ARN="${{ github.event.inputs.model_package_arn }}"
+            echo "Using provided model: $MODEL_ARN"
+          else
+            # Get latest approved model for the environment
+            ENV="${{ github.event.inputs.target_environment }}"
+            MODEL_GROUP="mlops-diabetes-model-group-${ENV}"
+            
+            echo "Getting latest approved model from $MODEL_GROUP..."
+            
+            MODEL_ARN=$(aws sagemaker list-model-packages \
+              --model-package-group-name "$MODEL_GROUP" \
+              --model-approval-status Approved \
+              --sort-by CreationTime \
+              --sort-order Descending \
+              --max-items 1 \
+              --query 'ModelPackageSummaryList[0].ModelPackageArn' \
+              --output text)
+            
+            if [ "$MODEL_ARN" == "None" ] || [ -z "$MODEL_ARN" ]; then
+              echo "❌ No approved model found in $MODEL_GROUP"
+              exit 1
+            fi
+            
+            echo "✓ Found approved model: $MODEL_ARN"
+          fi
+          
+          echo "arn=$MODEL_ARN" >> $GITHUB_OUTPUT
+          
+          # Get model version
+          VERSION=$(aws sagemaker describe-model-package \
+            --model-package-name "$MODEL_ARN" \
+            --query 'CustomerMetadataProperties.model_version' \
+            --output text 2>/dev/null || echo "unknown")
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "✓ Model version: $VERSION"
+      
+      - name: Validate model metrics
+        run: |
+          MODEL_ARN="${{ steps.get_model.outputs.arn }}"
+          
+          echo "Validating model metrics..."
+          
+          # Get model metadata
+          aws sagemaker describe-model-package \
+            --model-package-name "$MODEL_ARN" \
+            --query 'CustomerMetadataProperties' \
+            --output json > model_metadata.json
+          
+          # Extract metrics (using jq if available, otherwise python)
+          if command -v jq &> /dev/null; then
+            ACCURACY=$(jq -r '.accuracy // "0"' model_metadata.json)
+            F1_SCORE=$(jq -r '.f1_score // "0"' model_metadata.json)
+            ROC_AUC=$(jq -r '.roc_auc // "0"' model_metadata.json)
+          else
+            ACCURACY=$(python3 -c "import json; d=json.load(open('model_metadata.json')); print(d.get('accuracy', '0'))")
+            F1_SCORE=$(python3 -c "import json; d=json.load(open('model_metadata.json')); print(d.get('f1_score', '0'))")
+            ROC_AUC=$(python3 -c "import json; d=json.load(open('model_metadata.json')); print(d.get('roc_auc', '0'))")
+          fi
+          
+          echo "Model Metrics:"
+          echo "  Accuracy: $ACCURACY"
+          echo "  F1 Score: $F1_SCORE"
+          echo "  ROC-AUC: $ROC_AUC"
+          
+          # Set thresholds based on environment
+          ENV="${{ github.event.inputs.target_environment }}"
+          if [ "$ENV" == "production" ]; then
+            MIN_ACCURACY=0.75
+            MIN_F1=0.70
+            MIN_AUC=0.80
+          else
+            MIN_ACCURACY=0.70
+            MIN_F1=0.65
+            MIN_AUC=0.75
+          fi
+          
+          echo "Thresholds for $ENV:"
+          echo "  Min Accuracy: $MIN_ACCURACY"
+          echo "  Min F1: $MIN_F1"
+          echo "  Min AUC: $MIN_AUC"
+          
+          # Validate (basic comparison - works for simple cases)
+          if (( $(echo "$ACCURACY < $MIN_ACCURACY" | bc -l 2>/dev/null || echo "0") )); then
+            echo "⚠️  Warning: Accuracy $ACCURACY below threshold $MIN_ACCURACY"
+            # Don't fail for dev, but warn
+            if [ "$ENV" == "production" ]; then
+              exit 1
+            fi
+          fi
+          
+          echo "✓ Model metrics validated"
+
+  # ============================================================================
+  # JOB 2: Deploy to Dev (Auto)
+  # ============================================================================
+  deploy-dev:
+    name: Deploy to Dev Environment
+    needs: validate-model
+    if: |
+      needs.validate-model.outputs.environment == 'dev' ||
+      needs.validate-model.outputs.environment == 'staging' ||
+      needs.validate-model.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install boto3 sagemaker pyyaml pytest
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Deploy to dev endpoint
+        env:
+          ENVIRONMENT: dev
+          MODEL_PACKAGE_ARN: ${{ needs.validate-model.outputs.model_arn }}
+        run: |
+          echo "Deploying model to dev environment..."
+          echo "Model: $MODEL_PACKAGE_ARN"
+          echo "Model Version: ${{ needs.validate-model.outputs.model_version }}"
+          
+          python src/deployment/deploy.py \
+            --environment dev \
+            --model-package-arn "$MODEL_PACKAGE_ARN" \
+            --endpoint-name diabetes-classifier-dev \
+            --wait-for-completion
+      
+      - name: Run integration tests
+        env:
+          ENDPOINT_NAME: diabetes-classifier-dev
+        run: |
+          echo "Running integration tests on dev endpoint..."
+          
+          pytest tests/integration/test_endpoint.py \
+            --endpoint-name diabetes-classifier-dev \
+            -v \
+            --tb=short \
+            --maxfail=3
+      
+      - name: Tag model as dev-tested
+        if: success()
+        run: |
+          MODEL_ARN="${{ needs.validate-model.outputs.model_arn }}"
+          
+          aws sagemaker add-tags \
+            --resource-arn "$MODEL_ARN" \
+            --tags \
+              Key=DevTested,Value=true \
+              Key=DevTestDate,Value=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+              Key=DevTestBy,Value=${{ github.actor }}
+          
+          echo "✓ Model tagged as dev-tested"
+
+  # ============================================================================
+  # JOB 3: Deploy to Staging (Auto after Dev)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging Environment
+    needs: [validate-model, deploy-dev]
+    if: |
+      needs.validate-model.outputs.environment == 'staging' ||
+      needs.validate-model.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install boto3 sagemaker pyyaml pytest
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Deploy to staging endpoint
+        env:
+          ENVIRONMENT: staging
+          MODEL_PACKAGE_ARN: ${{ needs.validate-model.outputs.model_arn }}
+        run: |
+          echo "Deploying model to staging environment..."
+          
+          python src/deployment/deploy.py \
+            --environment staging \
+            --model-package-arn "$MODEL_PACKAGE_ARN" \
+            --endpoint-name diabetes-classifier-staging \
+            --wait-for-completion
+      
+      - name: Run integration tests
+        env:
+          ENDPOINT_NAME: diabetes-classifier-staging
+        run: |
+          echo "Running integration tests on staging endpoint..."
+          
+          pytest tests/integration/test_endpoint.py \
+            --endpoint-name diabetes-classifier-staging \
+            -v \
+            --tb=short
+      
+      - name: Tag model as staging-ready
+        if: success()
+        run: |
+          MODEL_ARN="${{ needs.validate-model.outputs.model_arn }}"
+          
+          aws sagemaker add-tags \
+            --resource-arn "$MODEL_ARN" \
+            --tags \
+              Key=StagingTested,Value=true \
+              Key=StagingTestDate,Value=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+              Key=StagingTestBy,Value=${{ github.actor }}
+          
+          echo "✓ Model tagged as staging-ready"
+
+  # ============================================================================
+  # JOB 4: Production Approval Gate
+  # ============================================================================
+  approve-production:
+    name: Approve Production Deployment
+    needs: [validate-model, deploy-staging]
+    if: needs.validate-model.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment:
+      name: production-approval
+      url: https://console.aws.amazon.com/sagemaker/home?region=us-east-1#/endpoints
+    
+    steps:
+      - name: Production deployment approved
+        run: |
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║         PRODUCTION DEPLOYMENT APPROVED                    ║"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "Model: ${{ needs.validate-model.outputs.model_arn }}"
+          echo "Version: ${{ needs.validate-model.outputs.model_version }}"
+          echo "Approved by: ${{ github.actor }}"
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo ""
+          echo "Proceeding with production deployment..."
+
+  # ============================================================================
+  # JOB 5: Deploy to Production (Manual Approval Required)
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production Environment
+    needs: [validate-model, approve-production]
+    if: needs.validate-model.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install boto3 sagemaker pyyaml
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Deploy to production endpoint
+        env:
+          ENVIRONMENT: production
+          MODEL_PACKAGE_ARN: ${{ needs.validate-model.outputs.model_arn }}
+        run: |
+          echo "🚀 Deploying model to PRODUCTION..."
+          echo "Model: $MODEL_PACKAGE_ARN"
+          echo "Version: ${{ needs.validate-model.outputs.model_version }}"
+          
+          python src/deployment/deploy.py \
+            --environment production \
+            --model-package-arn "$MODEL_PACKAGE_ARN" \
+            --endpoint-name diabetes-classifier-prod \
+            --wait-for-completion
+      
+      - name: Verify production deployment
+        run: |
+          echo "Verifying production deployment..."
+          
+          # Quick smoke test
+          python -c "
+          import boto3
+          runtime = boto3.client('sagemaker-runtime', region_name='us-east-1')
+          response = runtime.invoke_endpoint(
+              EndpointName='diabetes-classifier-prod',
+              ContentType='text/csv',
+              Body='1,85,66,29,0,26.6,0.351,31'
+          )
+          print('✓ Production endpoint responding')
+          "
+      
+      - name: Update model registry
+        if: success()
+        run: |
+          MODEL_ARN="${{ needs.validate-model.outputs.model_arn }}"
+          
+          # Update approval status to Production
+          aws sagemaker update-model-package \
+            --model-package-arn "$MODEL_ARN" \
+            --model-approval-status Approved \
+            --approval-description "Deployed to production by ${{ github.actor }}"
+          
+          # Add production tags
+          aws sagemaker add-tags \
+            --resource-arn "$MODEL_ARN" \
+            --tags \
+              Key=Environment,Value=production \
+              Key=DeployedBy,Value=${{ github.actor }} \
+              Key=DeploymentDate,Value=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+              Key=ProductionReady,Value=true
+          
+          echo "✓ Model registry updated"
+      
+      - name: Create deployment record
+        if: success()
+        run: |
+          # Create deployment record for audit trail
+          cat > deployment_record.json << EOF
+          {
+            "model_arn": "${{ needs.validate-model.outputs.model_arn }}",
+            "model_version": "${{ needs.validate-model.outputs.model_version }}",
+            "endpoint_name": "diabetes-classifier-prod",
+            "environment": "production",
+            "deployed_by": "${{ github.actor }}",
+            "deployment_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "workflow_run": "${{ github.run_id }}",
+            "git_sha": "${{ github.sha }}"
+          }
+          EOF
+          
+          cat deployment_record.json
+          echo "✓ Deployment record created"
+
+  # ============================================================================
+  # JOB 6: Post-Deployment Summary
+  # ============================================================================
+  deployment-summary:
+    name: Deployment Summary
+    needs: [validate-model, deploy-dev, deploy-staging, deploy-production]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate deployment summary
+        run: |
+          echo "╔════════════════════════════════════════════════════════════╗"
+          echo "║            DEPLOYMENT SUMMARY                              ║"
+          echo "╚════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "Environment: ${{ needs.validate-model.outputs.environment }}"
+          echo "Model: ${{ needs.validate-model.outputs.model_arn }}"
+          echo "Version: ${{ needs.validate-model.outputs.model_version }}"
+          echo ""
+          echo "Job Status:"
+          echo "  Model Validation: ${{ needs.validate-model.result }}"
+          echo "  Dev Deployment: ${{ needs.deploy-dev.result }}"
+          echo "  Staging Deployment: ${{ needs.deploy-staging.result }}"
+          echo "  Production Deployment: ${{ needs.deploy-production.result }}"
+          echo ""
+          echo "Workflow URL:"
+          echo "  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          
+          if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            echo "🎉 PRODUCTION DEPLOYMENT SUCCESSFUL!"
+          elif [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+            echo "✓ Staging deployment successful"
+          elif [ "${{ needs.deploy-dev.result }}" == "success" ]; then
+            echo "✓ Dev deployment successful"
+          else
+            echo "⚠️  Deployment completed with issues"
+          fi

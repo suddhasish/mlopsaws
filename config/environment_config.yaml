@@ -23,8 +23,10 @@ dev:
       use_spot_instances: true  # Save costs
     
     endpoint:
-      instance_type: ml.m5.large  # Changed from ml.t2.medium - more reliable for XGBoost
+      endpoint_name: diabetes-classifier-dev  # Dedicated dev endpoint
+      instance_type: ml.t2.medium  # Smallest instance for dev (cost-effective)
       initial_instance_count: 1
+      auto_deploy: true  # Auto-deploy on model approval
     
     autoscaling:
       enabled: false  # No autoscaling in dev
@@ -36,7 +38,8 @@ dev:
     model_registry:
       # Standardized naming aligned with existing group
       model_package_group_name: mlops-diabetes-model-group-dev
-      approval_status: Approved  # Auto-approve in dev
+      approval_status: Approved  # Auto-approve in dev for fast iteration
+      auto_register: true  # Auto-register models that pass quality gates
   
   evaluation:
     approval_thresholds:
@@ -74,8 +77,10 @@ staging:
       use_spot_instances: true
     
     endpoint:
+      endpoint_name: diabetes-classifier-staging  # Dedicated staging endpoint
       instance_type: ml.m5.large  # Similar to production
-      initial_instance_count: 1
+      initial_instance_count: 2  # Multi-instance for load testing
+      auto_deploy: true  # Auto-deploy after dev tests pass
     
     autoscaling:
       enabled: true
@@ -89,7 +94,8 @@ staging:
     
     model_registry:
       model_package_group_name: mlops-diabetes-model-group-staging
-      approval_status: PendingManualApproval  # Manual approval before prod
+      approval_status: PendingManualApproval  # Require approval before prod promotion
+      auto_register: false  # Manual registration to staging
   
   evaluation:
     approval_thresholds:
@@ -127,8 +133,11 @@ production:
       use_spot_instances: false  # Reliability over cost
     
     endpoint:
-      instance_type: ml.m5.xlarge  # Production-grade
+      endpoint_name: diabetes-classifier-prod  # Production endpoint
+      instance_type: ml.m5.large  # Production-grade (changed from xlarge due to quota)
       initial_instance_count: 2  # High availability
+      auto_deploy: false  # Manual deployment with approval
+      deployment_strategy: canary  # Use canary deployment (5% -> 25% -> 50% -> 100%)
     
     autoscaling:
       enabled: true
@@ -143,6 +152,8 @@ production:
     
     model_registry:
       model_package_group_name: mlops-diabetes-model-group-prod
+      approval_status: PendingManualApproval  # Require explicit approval
+      auto_register: false  # No auto-registration to prod
       approval_status: PendingManualApproval  # MUST be manually approved
   
   evaluation:
