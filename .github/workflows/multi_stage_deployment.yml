@@ -16,6 +16,13 @@ on:
         description: 'Model package ARN (optional - uses latest approved if empty)'
         required: false
         type: string
+  
+  # Also trigger on push to feature branch (for visibility)
+  push:
+    branches:
+      - feature/production-grade-deployment
+    paths:
+      - '.github/workflows/multi_stage_deployment.yml'
 
 env:
   AWS_REGION: us-east-1
