@@ -43,7 +43,7 @@ jobs:
     outputs:
       model_arn: ${{ steps.get_model.outputs.arn }}
       model_version: ${{ steps.get_model.outputs.version }}
-      environment: ${{ github.event.inputs.target_environment }}
+      environment: ${{ github.event.inputs.target_environment || 'dev' }}
     
     steps:
       - name: Checkout code
@@ -65,7 +65,7 @@ jobs:
             echo "Using provided model: $MODEL_ARN"
           else
             # Get latest approved model for the environment
-            ENV="${{ github.event.inputs.target_environment }}"
+            ENV="${{ github.event.inputs.target_environment || 'dev' }}"
             MODEL_GROUP="mlops-diabetes-model-group-${ENV}"
             
             echo "Getting latest approved model from $MODEL_GROUP..."
@@ -127,7 +127,7 @@ jobs:
           echo "  ROC-AUC: $ROC_AUC"
           
           # Set thresholds based on environment
-          ENV="${{ github.event.inputs.target_environment }}"
+          ENV="${{ github.event.inputs.target_environment || 'dev' }}"
           if [ "$ENV" == "production" ]; then
             MIN_ACCURACY=0.75
             MIN_F1=0.70
